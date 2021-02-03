@@ -220,6 +220,9 @@ lst5 = [9, 3, 2, 8]
 lst5.sort()
 print('不传默认升序：', lst5)  # [2, 3, 8, 9]
 
+strname = ['你好', '大家好', '大佬']
+print(strname.reverse())  # reverse() 反转
+
 # sotr(reverse=True)
 lst5 = [9, 3, 2, 8]
 lst5.sort(reverse=True)
