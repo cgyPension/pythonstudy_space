@@ -236,6 +236,10 @@ print(lst6, new_lst6)
 lst7 = [i * i for i in range(1, 6)]
 print(lst)  # [1, 4, 9, 16, 25]
 
+# for...in循环的本质就是不断的调用迭代器的next方法查找下一个数据
+for k in lst6:
+    print(k)
+
 '''
 列表常用函数
 len(list)：列表元素个数
