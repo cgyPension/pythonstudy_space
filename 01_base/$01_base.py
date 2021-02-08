@@ -872,14 +872,19 @@ class Computer:
 
 
 # 变量的赋值
-cpu = CPU()
+cpu = CPU()    # 等号 是内存地址的赋值 指向了同一个内存空间
 cpu1 = cpu
 print(cpu, id(cpu))  # <__main__.CPU object at 0x000002D562B1CFD0> 3115507109840
 print(cpu1, id(cpu1))  # <__main__.CPU object at 0x000002D562B1CFD0> 3115507109840
 
+cpu2 = cpu.copy() # 复制一个指向不同的内存空间
+
 disk = Disk()
 print(disk)  # <__main__.Disk object at 0x000001E192E8DF70>
 computer = Computer(cpu, disk)
+
+
+
 
 # 浅拷贝
 import copy
