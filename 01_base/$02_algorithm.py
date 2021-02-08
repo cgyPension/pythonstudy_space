@@ -5,13 +5,19 @@ print('======================================== 冒泡排序 ===================
 如果前一个数字大于后一个数字,交换两个数据的位置
 '''
 nums = [6, 5, 3, 1, 8, 7, 2, 4]
+count = 0
 i = 0
 while i < len(nums) - 1:
-    i += 1
+    flag = True  # 在每一趟里都定义一个flag 假设每一趟都没有换行
     n = 0
-    while n < len(nums) - 1:
+    while n < len(nums) - 1 - i:
+        count += 1  # 计算比较了多少次
         if nums[n] > nums[n + 1]:
             nums[n], nums[n + 1] = nums[n + 1], nums[n]
         n += 1
+    if flag:
+        break  # 这一趟走完以后，flag依然是True，说明这一趟没有进行过数据交换
+    i += 1
 
 print(nums)
+print('比较了%d次' % count)
