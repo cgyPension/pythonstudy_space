@@ -235,9 +235,12 @@ lst6 = [22, 7, 12, 8]
 new_lst6 = sorted(lst6)
 print(lst6, new_lst6)
 
-# 列表生成的表达式
+# 列表生成的表达式 列表推导式
 lst7 = [i * i for i in range(1, 6)]
 print(lst)  # [1, 4, 9, 16, 25]
+
+points = [(x, y) for x in range(5, 9) for y in range(10, 20)]
+print(points)
 
 # for...in循环的本质就是不断的调用迭代器的next方法查找下一个数据
 for k in lst6:
@@ -251,7 +254,7 @@ min(list)：返回列表元素最小值
 '''
 
 # 列表的嵌套
-# 列表推导式
+
 
 # TODO ======================================== 字典 ========================================
 print('======================================== 字典 ========================================')
@@ -887,7 +890,7 @@ computer = Computer(cpu, disk)
 # 浅拷贝
 import copy
 
-computer1 = copy.copy(computer)
+computer1 = copy.copy(computer)  # 等于 computer1 = computer.copy()
 print(computer, computer.cpu,
       computer.disk)  # <__main__.Computer object at 0x000001E192E8DE50> <__main__.CPU object at 0x000001E192E8DFD0> <__main__.Disk object at 0x000001E192E8DF70>
 print(computer1, computer1.cpu,
