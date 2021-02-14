@@ -260,8 +260,8 @@ min(list)：返回列表元素最小值
 print('======================================== 字典 ========================================')
 '''
 字典的特点：
-①字典中的所有元素都是一个key-value对，key不允许重复，value可以重复
-②字典中的元素是无序的
+①字典中的所有元素都是一个key-value对，key不允许重复（要是重复后一个key的值会覆盖前一个），value可以重复
+②字典中的元素是 无序的
 ③字典中的key必须是不可变对象，（即key不能为变量）
 ④字典也可以根据需要动态的伸缩
 ⑤字典会浪费较大的内存，是一种使用空间换时间的数据结构
@@ -282,7 +282,7 @@ print(info)
 info.clear()
 print(info)
 
-# 新增key
+# 新增key 如果key存在则是修改 不在新增
 info = {'name': 'cgy', 'age': 18}
 info['sex'] = '男'
 print(info)  # {'name':'cgy', 'age':18, 'sex':'男'}
@@ -305,6 +305,104 @@ key1 = ['Fruits', 'Books', 'Others']
 value1 = [98, 97, 95]
 d = {k1: v1 for k1, v1 in zip(key1, value1)}
 print(d)  # {'Others': 95, 'Books': 97, 'Fruits': 98}
+
+info.update(d)  # 字典合并
+print(info)
+
+# 字典 wordcount
+chars = ['a', 'g', 'x', 'a', 'p', 'p', 'a', 'g']
+char_count = {}
+for char in chars:
+    # if char in char_count:
+    #     char_count += 1
+    # else:
+    #     char_count[char] = 1
+    if char not in char_count:
+        char_count[char] = chars.count(char)
+
+print(char_count)
+
+vs = char_count.values()
+# 可以使用内置函数 max 取最大值
+max_count = max(vs)  # 3
+
+for k, v in char_count.items():
+    if v == max_count:
+        print(k)
+
+# Python        Json
+#   字典          对象
+#   列表、元组     数组
+# jumps 将字典、列表、集合、元组等转换成为JSON字符串
+import json
+m = json.dumps(info)
+print(m)
+n = '{"name": "cgy", "age": 20,"gender":"male"}'
+s = json.loads(n)  # 把json字符串转换为Python里的数据类型
+print(type(s))
+
+'''
+练习_01
+x = input('请输入您的姓名：')
+for persion in persons:
+    # if name in persion: # in 运算符，如果直接用在字典上，是用来判断key是否存在，而不是value
+    if persion['name'] == x:
+        print('您输入的名字存在')
+        break
+else:
+    # print('您输入的名字不存在')
+    # 创建一个新的字典 new_persion
+    new_persion = {'name':x}
+
+    y = int(input('请输入您的年龄：'))
+    new_persion['age'] = y
+
+    # 把这个新的数据存储到 persons 列表里
+    persons.append(new_persion)
+    print('用户添加成功')
+    
+练习_02
+dict1 = {"a": 100, "b": 200, "c": 300}
+
+# dict2 = {}
+# for k, v in dict1.items():
+#     dict2[v] = k
+# 
+# dict1 = dict2
+
+dict1 = {v: k for k, v in dict1.items()}  # 字典推导式
+print(dict1)
+
+练习_03
+students = [
+    {...}
+]
+count = 0
+teenager_count = 0
+max_score = students[0]['score']  # 假设第0个学生的成绩是最高的
+max_indes = 0  # 假设最高分的学生下标是0
+for student in students:
+    if student['score'] < 60:
+        count += 1
+        print('%s不及格，分数是%d' % (student['name'], student['score']))
+    if student['age'] < 18:
+        teenager_count += 1
+    # if student['tel'].endswith('8'):  # int类型
+    if student['tel'][-1] == '8'
+        print('%s的手机号以8结尾' % student['name'])
+
+    if student['score'] > max_score:  # 遍历时，发现一个学生的成绩大于假设的最大数
+        max_score = student['score']
+        # max_indes = i  # 修改最高分的同时，把最高分的下标也修改
+
+print('不及格的学生有%d' % count)
+print('未成年的学生有%d' % teenager_count)
+print('最高成绩是%d' % max_score)
+
+for student in students:
+    if student['score'] == max_score:
+        print('最高分是%s' % student['name'])
+'''
 
 # TODO ======================================== 元组 ========================================
 print('======================================== 元组 ========================================')
@@ -334,6 +432,26 @@ for yuanzu in t:
 # 如果元组中对象本身是不可变对象，则不能再引用其他对象
 # 如果元组中的对象是可变对象，则可变对象的引用不允许改变，但数据可以改变
 
+print(tuple(lst6))  # 列表转元组
+print(list(t))  # 元组转列表
+
+'''
+练习_01
+sing = ('李白', '白居易', '李清照', '杜甫', '王昌齡', '王維', '孟浩然', '王安石')
+dance = ('李商隐', '杜甫', '李白', '白居易', '岑参', '王昌齡')
+rap = ('李清照', '刘禹锡', '岑參', '王昌齡', '苏轼', '王維', '李白')
+# 去重
+total = set(sing+dance+rap)
+
+# 求只选了一个学科的人的数量和对应的名字
+sing_only = []
+for p in sing:
+    if p not in dance and p not in rap:
+        sing_only.append(p)
+print('只选择了第一个学科的有{}人，是{}'.format(len(sing_only),sing_only))
+
+'''
+
 # TODO ======================================== 集合 ========================================
 print('======================================== 集合 ========================================')
 # 集合的存储是无序的 value不能重复
@@ -353,15 +471,17 @@ print(s3)  # {32, 1, 5, 23}
 s4 = set('python')
 print(s4)  # {'p', 't', 'h', 'n', 'o', 'y'}
 
-# 定义集合
+# 空集合定义  空字典定义是{}
 s5 = set()
 
 s6 = {10, 20, 30, 40, 50}
 # 判断是否存在
 print(10 in s6)  # True
+s6.pop()  # 删除一个
 s6.add(80)  # 新增
+# union 将多个集合合并成一个新的集合
 s6.update({200, 400})  # 新增多个
-s6.remove(10)  # 删除
+s6.remove(10)  # 删除特定元素
 s6.discard(900)  # 如果有则删除900， 没有也不会报错
 s6.pop()  # 随机删除一个， 不能传参
 s6.clear()  # 清空集合
@@ -373,6 +493,11 @@ print(s7 == s8)  # False
 print(s8.issubset(s7))  # True 假如集合s7的元素里包括集合s8的全部元素，则s7是s8的子集
 print(s7.issuperset(s8))  # True 与上相反,假如集合s7的元素里包括集合s8的全部元素，则s7是s8的超集
 print(s7.isdisjoint(s9))  # False 无交集  判断两个集合是否有交集
+
+print(s7 - s8)  # A - B 求A和B的差集
+print(s7 & s8)  # 求A和B的交集
+print(s7 | s8)  # 求A和B的并集
+print(s7 ^ s8)  # 求A和B的差集的并集
 
 # TODO ======================================== 字符串常用操作 ========================================
 print('======================================== 字符串常用操作 ========================================')
@@ -440,6 +565,7 @@ replace()	第1个参数指定被替换的子串
 该方法的第3个参数可以指定最大替换次数
 
 cha.join(lst)	用cha将列表后元组的字符串合并成一个字符串。使用方法为cha.join(lst)
+eval()  执行字符串里的代码
 '''
 print('{0:.3}'.format(3.1415926))  # 0表示顺序(第一个数) .3表示一共是3位数
 print('{:.3f}'.format(3.1415926))  # .3f表示一共是3位小数
