@@ -5,24 +5,6 @@ import bean
 
 import student_manager
 
-def start():
-    content = file_manager.read_file('files/welcome.txt')
-    while True:
-        operator = input(content + '\n请选择(1-3)：')
-        if operator == '1':
-            print('登陆')
-        elif operator == '2':
-            print('注册')
-            register()
-        elif operator == '3':
-            print('退出')
-            exit(0)
-        else:
-            print('输入有误')
-
-
-if __name__ == "__main__":
-    start()
 
 
 # teacher = {}
@@ -72,3 +54,20 @@ def login():
         student_manager.show_manager()
     else:
         print('密码错误')
+
+def start():
+    content = file_manager.read_file('files/welcome.txt')
+    while True:
+        operator = input(content + '\n请选择(1-3)：')
+        if operator == '1':
+            login()
+        elif operator == '2':
+            register()
+        elif operator == '3':
+            exit(0)
+        else:
+            print('输入有误')
+
+
+if __name__ == "__main__":
+    start()
