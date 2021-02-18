@@ -1,4 +1,6 @@
 # TODO ======================================== 公共方法 ========================================
+import os
+
 print('======================================== 公共方法 ========================================')
 # +：可以用来拼接，用于字符串、元组、列表
 print('hello' + 'world')
@@ -255,7 +257,7 @@ print('从{}地址{}端口号接收到了消息,内容是:{}'.format(addr[0],add
 s.close()
 '''
 
-# SOCK_DGRAM:表示连接是一个
+#
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # TODO tcp连接 要先和服务器建立连接才能发送数据 更安全
 s.connect(('192.168.31.199',9000))
@@ -263,10 +265,44 @@ s.send('hello'.encode('utf8'))
 s.close()
 
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.bind(('192.168.31.199',9000))
 s.listen(128)  # 把socker监听
+# x = s.accept()
+# print(x)
+client_socket, client_addr =s.accept()
+client_socket.recv(1024)  # udp里接受数据，使用的recvfrom tcp里使用recv获取数据
+print('接收到了{}客户端{}端口号发送的数据,内容是:'.format(client_addr[0], client_addr[1]))
+
 s.close()
 
 
+# TODO ======================================== 文件下载服务器 ========================================
+print('======================================== 文件下载服务器 ========================================')
+import socket
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+server_socket.bind(('192.168.31.199',9090))
+server_socket.listen(128)
+client_socket, client_addr =server_socket.accept()
+client_socket.recv(1024).decode('utf-8')
+# print('接收到了{}客户端{}端口号发送的数据,内容是:'.format(client_addr[0], client_addr[1],data))
+if os.path.isfile(data):
+    with open(data,'rb',encoding='utf-8') as file:
+        content = file.read()
+        client_socket.send(content.encode('utf-8'))
+else:
+    print('文件不存在')
 
-# TODO ======================================== 网络 ========================================
-print('======================================== 网络 ========================================')
+
+# TODO ======================================== 文件下载客户端 ========================================
+print('======================================== 文件下载客户端 ========================================')
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.connect(('192.168.31.199',9090))
+file_name = input('请输入您要下载的文件名：')
+s.send(file_name.encode('utf8'))
+
+content = s.recv(1024).decode('utf-8')
+with open(file_name,'wb',encoding='utf-8') as file:
+    file.write(content)
+
+s.close()
