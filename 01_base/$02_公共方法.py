@@ -1,5 +1,7 @@
 # TODO ======================================== 公共方法 ========================================
 import os
+import threading
+import time
 
 print('======================================== 公共方法 ========================================')
 # +：可以用来拼接，用于字符串、元组、列表
@@ -224,8 +226,9 @@ print(re.sub(r'\d', 'x', 'gasfkg46456gijdag1369'))
 
 def test():
     y = int(x.group(0))
-    y *=2
+    y *= 2
     return str(y)
+
 
 p = 'gasfkg46456gijdag1p9'
 # sub 内部在调用 test 方法时，会把每一个匹配到的数据以re.Match的格式
@@ -234,6 +237,7 @@ print(re.sub(r'\d+', test, p))  # test函数是自动调用
 # TODO ======================================== 网络 ========================================
 print('======================================== 网络 ========================================')
 import socket
+
 # 1.创建socket,并连接
 # AF_INET:表示这个socket是用来进行网络连接
 # SOCK_DGRAM:表示连接是一个 TODO udp连接 只管发 不安全 没有严格的客户端和服务器的区别
@@ -243,9 +247,9 @@ s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # data:要发送的数据，它是二进制的数据
 # address:发送给谁，参数是一个元祖,元祖里有两个元素
 # 第0个表示目标的ip地址，第1个表示程序的端口号
-s.sendto('hello'.encode('utf8'),('192.168.31.199',9000))
-data,addr = s.recvfrom(1024)  # recufrom是一个阻塞的方法,等待
-print('接收到了{}地址{}端口号接收到了消息,内容是:{}'.format(addr[0],addr[1],data).decode('utf-8'))
+s.sendto('hello'.encode('utf8'), ('192.168.31.199', 9000))
+data, addr = s.recvfrom(1024)  # recufrom是一个阻塞的方法,等待
+print('接收到了{}地址{}端口号接收到了消息,内容是:{}'.format(addr[0], addr[1], data).decode('utf-8'))
 s.close()  # 3.关闭socket
 
 '''
@@ -260,49 +264,72 @@ s.close()
 #
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # TODO tcp连接 要先和服务器建立连接才能发送数据 更安全
-s.connect(('192.168.31.199',9000))
+s.connect(('192.168.31.199', 9000))
 s.send('hello'.encode('utf8'))
 s.close()
 
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.bind(('192.168.31.199',9000))
+s.bind(('192.168.31.199', 9000))
 s.listen(128)  # 把socker监听
 # x = s.accept()
 # print(x)
-client_socket, client_addr =s.accept()
+client_socket, client_addr = s.accept()
 client_socket.recv(1024)  # udp里接受数据，使用的recvfrom tcp里使用recv获取数据
 print('接收到了{}客户端{}端口号发送的数据,内容是:'.format(client_addr[0], client_addr[1]))
 
 s.close()
 
-
 # TODO ======================================== 文件下载服务器 ========================================
 print('======================================== 文件下载服务器 ========================================')
 import socket
+
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_socket.bind(('192.168.31.199',9090))
+server_socket.bind(('192.168.31.199', 9090))
 server_socket.listen(128)
-client_socket, client_addr =server_socket.accept()
+client_socket, client_addr = server_socket.accept()
 client_socket.recv(1024).decode('utf-8')
 # print('接收到了{}客户端{}端口号发送的数据,内容是:'.format(client_addr[0], client_addr[1],data))
 if os.path.isfile(data):
-    with open(data,'rb',encoding='utf-8') as file:
+    with open(data, 'rb', encoding='utf-8') as file:
         content = file.read()
         client_socket.send(content.encode('utf-8'))
 else:
     print('文件不存在')
 
-
 # TODO ======================================== 文件下载客户端 ========================================
 print('======================================== 文件下载客户端 ========================================')
 import socket
+
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.connect(('192.168.31.199',9090))
+s.connect(('192.168.31.199', 9090))
 file_name = input('请输入您要下载的文件名：')
 s.send(file_name.encode('utf8'))
 
 content = s.recv(1024).decode('utf-8')
-with open(file_name,'wb',encoding='utf-8') as file:
+with open(file_name, 'wb', encoding='utf-8') as file:
     file.write(content)
 
 s.close()
+
+# TODO ======================================== 多线程 ========================================
+print('======================================== 多线程 ========================================')
+
+
+def dance():
+    for i in range(50):
+        time.sleep(0.2)
+        print('跳舞')
+
+
+def sing():
+    for i in range(50):
+        time.sleep(0.2)
+        print('唱歌')
+
+
+# target 需要的是一个函数，用来指定线程需要执行的任务
+t1 = threading.Thread(target=dance)  # 创建了线程1
+t2 = threading.Thread(target=sing)  # 创建了线程2
+
+t1.start()
+t2.start()
