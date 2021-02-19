@@ -333,3 +333,220 @@ t2 = threading.Thread(target=sing)  # 创建了线程2
 
 t1.start()
 t2.start()
+
+# TODO ====== 卖票
+ticket = 50
+
+lock = threading.Lock()  # 创建一把锁
+
+
+def sell_ticket():
+    global ticket
+    while True:
+        lock.acquire()  # 加同步锁
+        if ticket > 0:
+            time.sleep(1)  # 模拟繁忙下单支付 网络延迟
+            ticket -= 1
+            lock.release()  # 释放锁
+            print('{}卖出一张票，还剩{}张'.format(threading.current_thread().name, ticket))
+        else:
+            print('票卖完了')
+
+
+t1 = threading.Thread(sell_ticket, name='线程1')
+t2 = threading.Thread(sell_ticket, name='线程1')
+t1.start()
+t2.start()
+
+# TODO ====== 面包 生产者消费者
+import queue
+
+
+def produce():
+    for i in range(10):
+        time.sleep(0.5)
+        print('生产了+++面包{}{}'.format(threading.current_thread().name, i))
+        q.put('{}{}'.format(threading.current_thread().name, i))
+
+
+def consumer():
+    for i in range(100):
+        time.sleep(0.3)
+        print('买到了---面包{}'.format(q.get()))
+
+
+q = queue.Queue()  # 创建一个队列
+
+# 一条生产线
+t1 = threading.Thread(produce, name='c1')
+# 一条消费线
+t2 = threading.Thread(consumer, name='p1')
+
+t1.start()
+t2.start()
+
+# TODO ======================================== 多进程 ========================================
+print('======================================== 多进程 ========================================')
+import multiprocessing
+
+
+# 进程是cpu控制的最小单位
+def dance():
+    for i in range(50):
+        time.sleep(0.5)
+        print('跳舞，pid={}'.format(os.getpid()))
+
+
+def sing():
+    for i in range(50):
+        time.sleep(0.5)
+        print('唱歌，pid={}'.format(os.getpid()))
+
+
+if __name__ == "__main__":
+    print('主进程的pid={}'.format(os.getpid()))
+    # 创建了两个进程trarget用来表示执行的任务
+    # args用来传参,类型是一个元组
+    p1 = multiprocessing.Process(target=dance, args=(100,))
+    p2 = multiprocessing.Process(target=sing, args=(100,))
+    p1.start()
+    p2.start()
+
+# TODO ======================================== 进程共享全局变量 ========================================
+print('======================================== 进程共享全局变量 ========================================')
+
+# 同一进程间的不同线程可以共享全局变量，不同进程间不能共享全局变量
+# 一个程序里至少有一个主进程，一个主进程里至少有一个主线程
+
+n = 100
+
+
+def test():
+    global n
+    n += 1
+    print('{}里n的值是{}'.format(os.getpid(), n))
+
+
+def demo():
+    global n
+    n += 1
+    print('{}里n的值是{}'.format(os.getpid(), n))
+
+
+# 同一个主进程里的两个子线程，线程之间可以共享同一进程的全局变量
+# t1 = threading.Thread(test) # test() 101
+# t2 = threading.Thread(demo) # demo() 102
+# t1.start()
+# t2.start()
+
+# 不同进程各自保存一份全局变量
+p1 = multiprocessing.Process(target=test)  # test() 101
+p2 = multiprocessing.Process(target=demo)  # demo() 101
+p1.start()
+p2.start()
+
+# TODO ======================================== queue队列 ========================================
+print('======================================== queue队列 ========================================')
+
+# q1 = queue.Queue()  # 进程间通信
+# q2 = multiprocessing.Queue()  # 线程间通信
+
+# 创建队列时，可以指定最大长度。默认是0，表示不限长
+q = multiprocessing.Queue(5)
+
+q.put('ho1w')
+q.put('ho3w')
+q.put('ho4w')
+q.put('ho5w')
+q.put('ho6w')
+
+# print(q.full()) # True
+# q.put('how') #无法放进去
+# 往队列里方法了how
+# block = True:表示是阻塞,如果队列已经满了,就等待
+# timeout 超时 等待多久以后程序会出错单位是秒
+q.put('how', block=True, timeout=1)
+# q.put_nowait('how')  # 等价于 q.put('how',block=False)
+print(q.get())
+
+q.get(block=True, timeout=10)
+
+# TODO ======================================== 线程、进程join ========================================
+print('======================================== 线程、进程join ========================================')
+x = 10
+
+def test1(a, b):
+    time.sleep(1)
+    global x
+    x = a + b
+
+# test1(1,1)
+# print(x)
+
+t1 = threading.Thread(target=test1, args=(1, 1), name='c1')
+t1.start()
+t.join()  # 让主线程等待子线程
+print(x)
+
+# TODO ======================================== http服务器 ========================================
+print('======================================== http服务器 ========================================')
+# HTTP协议: HyperText Transfer Protocol 超文本传输协议
+# 协议的作用就是用来传输超文本 HTML(HyperTextMarkupLanguage)
+# HTML :超文本标记语言
+# HTTP:用来传输超文本的一个协议
+# HTTP 服务器都是基于TCP的socket 链接
+
+class MyServer(object):
+    def __init__(self,ip,port):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind((ip, port))
+        self.socket.listen(128)
+
+    def run_forever(self):
+        while True:
+            # 获取的数据是一个元组,元组里有两个元素
+            # 第0个元素是客户端的socket链接
+            # 第1个元素是客户端的ip地址和端口号
+            client_socket, client_addr = self.socket.accept()
+
+            # 从客户端的 socket 里获取数据
+            data = client_socket.recv(1024).decode('utf-8')
+            print('接受到{}的数据{}'.format(client_addr[0], data))
+
+            path = '/'
+            if data:  # 浏览器发送过来的数据有可能是空的
+                path = data.splitlines()[0].split(' ')[1]
+                print('请求的路径是{}'.format(path))
+
+            response_body = 'hello world'
+            response_header = 'HTTP/1.1 200 OK\n'  # 200 ok 成功了
+            if path == '/login':
+                response_body = '欢迎来到登录页面'
+            elif path == '/register':
+                response_body = '欢迎来到注册页面'
+            elif path == '/':
+                response_body = '欢迎来到首页'
+            else:
+                #  页面未找到 404 Page Not Found
+                response_header = 'HTTP/1.1 404 Page Not Found\n'
+                response_body = '对不起 你找的页面不存在!!!'
+
+            # 返回内容之前，需要先设置HTTP响应头
+            # 设置一个响应头就换一行
+            response_header += 'content-type: text/html;charset=utf8\n' + '\n'
+            # client_socket.send('HTTP/1.1 200 OK\n'.encode('utf-8'))
+            # client_socket.send('content-type: text/html\n'.encode('utf-8'))
+            # 所有的响应头设置完成以后，再换行
+            # client_socket.send('\n'.encode('utf-8'))
+
+            response = response_header + response_body
+            # 发送内容
+            client_socket.send(response.encode('utf8'))
+            print(data)
+
+
+server = MyServer('192.168.31.199', 9090)
+server.run_forever()
+
+# TODO ======================================== wsg服务器 ========================================
+print('======================================== wsg服务器 ========================================')
