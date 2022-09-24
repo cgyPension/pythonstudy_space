@@ -1,0 +1,26 @@
+{
+普量学院量化投资课程系列案例源码包
+普量学院版权所有
+仅用于教学目的，严禁转发和用于盈利目的，违者必究
+（C) Plouto-Quants All Rights Reserved
+
+普量学院助教微信：niuxiaomi3
+}
+
+Variables: var0(0), var1(0), kline(0), dline(0);
+Variables: avgPriceBuy(0), avgVol(0), avgPriceExit(0);
+
+// 计算慢速KD值，经典KDJ指标，参数为经典参数14，3，3
+value1 = Stochastic(High, Low, Close, 14, 3, 3, 1, var0, var1, kline, dline);
+
+// 计算10日价格均线，20日价格均线，10日成交量均值
+avgPriceBuy = Average(Close, 10);
+avgVol = Average(Volume, 10);
+avgPriceExit = Average(Close, 20);
+
+// 在K上穿D，同时当日成交大于10日均值，当日收盘大于10日收盘价时买入
+if (kline > dline and kline[1] <= dline[1] and Volume > avgVol and Close > avgPriceBuy) then
+    buy 1 contract at this bar close;
+
+// 当日收盘价格跌破20日均线时卖出
+if (Close < AvgPriceExit) then sell at this bar close;

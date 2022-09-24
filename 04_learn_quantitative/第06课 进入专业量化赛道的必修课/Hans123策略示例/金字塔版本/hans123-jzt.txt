@@ -1,0 +1,39 @@
+//该模型为简单示范模型，用户需根据自己交易经验，修改完善后再实际应用!!!
+
+//策略：HANS123
+//简介:作为外汇市场上广为流行的一种突破交易策略，HANS123以其简洁的开盘后N根K线的高低点突破，作为交易信号触发的评判标准。这也是一种入场较早的交易模式，配合适当过滤技术，或可提高其胜算。
+//类型:日内趋势突破
+//周期:
+//使用市场:
+//详情介绍网址:http://www.weistock.com/bbs/dispbbs.asp?boardid=10&Id=30233
+//修订时间:2012.11.1
+//DESIGNED BY ROGARZ
+ 
+//准备中间变量
+INPUT:SS(1,1,10000,1),NMIN1(30,1,1000,1),NMIN2(10,1,100,1),N1(0,0,100,1);
+
+N:=BARSLAST(DATE<>REF(DATE,1))+1;
+开盘30分钟最高价:=VALUEWHEN(TIME<=090000+NMIN1*100,HHV(H,N));
+开盘30分钟最低价:=VALUEWHEN(TIME<=090000+NMIN1*100,LLV(L,N));
+手数:=SS; 
+上轨:开盘30分钟最高价+N1*MINDIFF;
+下轨:开盘30分钟最低价-N1*MINDIFF;
+
+//条件
+开多条件:=C>上轨;
+开空条件:=C<下轨;
+
+//交易系统
+IF TIME>090000+NMIN1*100 AND TIME<150000-10*100 THEN BEGIN
+    开多:BUY(开多条件 AND HOLDING=0,手数,MARKET);
+    开空:BUYSHORT(开空条件 AND HOLDING=0,手数,MARKET);
+END
+
+//平仓
+IF TIME>=150000-NMIN2*100 THEN BEGIN
+    收盘平多:SELL(1,手数,MARKET);
+    收盘平空:SELLSHORT(1,手数,MARKET);
+END
+
+当前持仓:HOLDING,COLORGRAY,LINETHICK0;
+当前资产:ASSET,NOAXIS,COLORGRAY;//输出当前资产，但不影响坐标最高最低值
