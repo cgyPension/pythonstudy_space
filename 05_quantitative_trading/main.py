@@ -8,7 +8,7 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from ods import ods_dc_stock_quotes_di
+from ods import ods_dc_stock_quotes_di, ods_163_stock_quotes_di, ods_dc_stock_tfp_di
 from util.CommonUtils import get_code_list_v2, get_process_num
 from util.DBUtils import sqlalchemyUtil
 
@@ -46,7 +46,8 @@ def task_update_daily():
     start_time = time.time()
 
     ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust, engine, process_num)
-
+    ods_163_stock_quotes_di.multiprocess_run(code_list, start_date, end_date, engine, process_num)
+    ods_dc_stock_tfp_di.get_data(start_date, end_date, engine)
 
     # 程序结束运行时间
     end_time = time.time()
@@ -60,5 +61,7 @@ def task_update_daily():
 # 时间： 周一到周五每天早上9点25, 执行run_today
 # sched.add_job(task_update_daily, 'cron', day_of_week='mon-fri', hour=9, minute=25)
 # sched.start()
+
+# nohup python app.py update 20221010 20221010>> my.log 2>&1 &
 if __name__ == '__main__':
     task_update_daily()

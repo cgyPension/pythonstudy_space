@@ -175,3 +175,12 @@ print('存入成功')
 result_df = pd.DataFrame([[4,'yy'],[2,'oo']],columns=('id', 'num'))
 result_df = np.array(result_df).tolist() # 转化为list
 print(result_df)
+
+# todo ====================================================================  遍历日期区间  ==================================================================
+
+start_date = '20220101'
+end_date = '20221010'
+daterange = pd.date_range(start_date, end_date)
+# print(daterange)
+for single_date in daterange:
+    print(single_date.strftime("%Y%m%d"))
