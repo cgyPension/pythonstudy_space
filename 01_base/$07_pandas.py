@@ -172,7 +172,7 @@ result_df.to_sql(name='price', con=engine, if_exists='append', index=False, inde
 engine.dispose()
 print('存入成功')
 
-result_df = pd.DataFrame([[4,'yy'],[2,'oo']],columns=('id', 'num'))
+result_df = pd.DataFrame([[4,'yy'],[2,'oo']],columns=['id', 'num'])
 result_df = np.array(result_df).tolist() # 转化为list
 print(result_df)
 

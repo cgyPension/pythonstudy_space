@@ -38,18 +38,15 @@ def get_data(start_date, end_date, engine):
         try:
             # 两市停复牌
             df = ak.stock_tfp_em(date=single_date.strftime("%Y%m%d"))
+            print('ods_dc_stock_tfp_di.py：正在处理{}...'.format(single_date))
 
             if df.empty:
                 continue
-            if df['代码'].startswith('6'):
-                df['代码'] = df['代码'] + '.SH'
-            elif df['代码'].startswith('8') or df['代码'].startswith('4') == True:
-                df['代码'] = df['代码'] + '.BJ'
-            else:
-                df['代码'] = df['代码'] + '.SZ'
+
+            df['stock_code'] = df['代码'].apply(str_pre)
 
             df['trade_date'] = single_date.strftime("%Y-%m-%d")
-            df.rename(columns={'代码': 'stock_code','名称': 'stock_name','停牌时间': 'suspension_time','停牌截止时间': 'suspension_deadline','停牌期限': 'suspension_period','停牌原因': 'suspension_reason','所属市场': 'belongs_market','预计复牌时间': 'estimated_resumption_time'}, inplace=True)
+            df.rename(columns={'名称': 'stock_name','停牌时间': 'suspension_time','停牌截止时间': 'suspension_deadline','停牌期限': 'suspension_period','停牌原因': 'suspension_reason','所属市场': 'belongs_market','预计复牌时间': 'estimated_resumption_time'}, inplace=True)
             df = df[['trade_date', 'stock_code', 'stock_name','suspension_time', 'suspension_deadline','suspension_period','suspension_reason','belongs_market','estimated_resumption_time']]
             result_list.extend(np.array(df).tolist())
 
@@ -60,15 +57,27 @@ def get_data(start_date, end_date, engine):
     # 重复主键不插入
     engine.execute(
         """
-       insert ignore into ods_dc_stock_quotes_di (trade_date, stock_code, stock_name, before_open_price,open_price, close_price, high_price, low_price,
-                                   volume, turnover, change_percent, change_amount, turnover_rate,total_market_value,circulating_market_value)
-                                   values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        insert ignore into ods_dc_stock_tfp_di (trade_date, stock_code, stock_name, suspension_time, suspension_deadline,
+                                 suspension_period, suspension_reason, belongs_market, estimated_resumption_time)
+        values (%s, %s, %s, %s, %s, %s, %s, %s, %s);
         """, result_list
     )
 
     sqlalchemyUtil().closeEngine()
 
+def str_pre(s):
+    s=str(s)
+    ak_code = None
+    if s.startswith('6'):
+        ak_code = 'sh' + s
+    elif s.startswith('8') or s.startswith('4') == True:
+        ak_code = 'bj' + s
+    else:
+        ak_code = 'sz' + s
+    return ak_code
 
+# nohup python ods_dc_stock_tfp_di.py update 20221010 20221010 >> my.log 2>&1 &
+# python ods_dc_stock_tfp_di.py all
 if __name__ == '__main__':
 
     if len(sys.argv) == 1:
@@ -90,4 +99,5 @@ if __name__ == '__main__':
 
     start_time = time.time()
     get_data(start_date, end_date, engine)
-    print('程序运行时间：{}s'.format(time.time() - start_time))
+    end_time = time.time()
+    print('程序运行时间：{}s，{}分钟'.format(end_time - start_time, (end_time - start_time) / 60))

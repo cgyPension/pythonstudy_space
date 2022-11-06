@@ -49,9 +49,11 @@ def task_update_daily():
     ods_163_stock_quotes_di.multiprocess_run(code_list, start_date, end_date, engine, process_num)
     ods_dc_stock_tfp_di.get_data(start_date, end_date, engine)
 
+
+
     # 程序结束运行时间
     end_time = time.time()
-    print('程序运行时间：{}s'.format(end_time - start_time))
+    print('程序运行时间：{}s，{}分钟'.format(end_time - start_time,(end_time - start_time)/60))
 
 
 

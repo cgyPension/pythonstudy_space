@@ -8,6 +8,7 @@ from datetime import date
 import akshare as ak
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 # 输出显示设置
@@ -19,5 +20,10 @@ pd.set_option('display.unicode.east_asian_width', True)
 
 
 if __name__ == '__main__':
-    df = ak.stock_tfp_em(date='20221010')
-    print(df)
+
+    stock_a_indicator_df = ak.stock_a_lg_indicator(symbol="601398")
+    print(stock_a_indicator_df)
+    # plt.hist(stock_a_indicator_df.pe)  ## 市盈率-正方图
+    # plt.hist(stock_a_indicator_df.pe_ttm)  ## 市盈率-直方图
+
+

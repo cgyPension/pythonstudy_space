@@ -34,7 +34,8 @@ def multiprocess_run(code_list, start_date, end_date, engine, process_num):
         for i in range(len(code_group)):
             codes = code_group[i]
             # 传递给apply_async()的函数如果有参数，需要以元组的形式传递 并在最后一个参数后面加上 , 号，如果没有加, 号，提交到进程池的任务也是不会执行的
-            result_list.append(pool.apply_async(get_group_data, args=(codes, start_date, end_date, i, len(code_group), len(code_list),)))
+            result_list.append(pool.apply_async(get_group_data, args=(
+            codes, start_date, end_date, i, len(code_group), len(code_list),)))
         # 阻止后续任务提交到进程池
         pool.close()
         # 等待所有进程结束
@@ -47,9 +48,10 @@ def multiprocess_run(code_list, start_date, end_date, engine, process_num):
             # 重复主键不插入
             engine.execute(
                 """
-               insert ignore into ods_dc_stock_quotes_di (trade_date, stock_code, stock_name, before_open_price,open_price, close_price, high_price, low_price,
-                                           volume, turnover, change_percent, change_amount, turnover_rate,total_market_value,circulating_market_value)
-                                           values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                insert ignore into ods_163_stock_quotes_di (trade_date, stock_code, stock_name, before_open_price, open_price, close_price,
+                                     high_price, low_price, volume, turnover, change_percent, change_amount,
+                                     turnover_rate, total_market_value, circulating_market_value)
+                                     values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """, rl
             )
         else:
@@ -61,7 +63,16 @@ def get_group_data(code_list, start_date, end_date, i, n, total):
     result_list = []
     for codes in code_list:
         ak_code = codes[0]
-        print('ods_163_stock_quotes_di：{}启动,父进程为{}：第{}组/共{}组，{}个)正在处理{}...'.format(os.getpid(), os.getppid(), i, n, total, ak_code))
+        print(
+            'ods_163_stock_quotes_di：{}启动,父进程为{}：第{}组/共{}组，{}个)正在处理{}...'.format(os.getpid(), os.getppid(), i, n, total,
+                                                                                 ak_code))
+
+        if ak_code.startswith('6'):
+            ak_code = 'sh' + ak_code
+        elif ak_code.startswith('8') or ak_code.startswith('4') == True:
+            ak_code = 'bj' + ak_code
+        else:
+            ak_code = 'sz' + ak_code
 
         df = get_data(ak_code, start_date, end_date)
         if df.empty:
@@ -86,25 +97,30 @@ def get_data(ak_code, start_date, end_date):
 
             if df.empty:
                 continue
-            if ak_code.startswith('6'):
-                df['stock_code'] = ak_code + '.SH'
-            elif ak_code.startswith('8') or ak_code.startswith('4') == True:
-                df['stock_code'] = ak_code + '.BJ'
-            else:
-                df['stock_code'] = ak_code + '.SZ'
+            df['stock_code'] = ak_code
 
-            df.rename(columns={'日期': 'trade_date', '股票代码': 'stock_code','名称': 'stock_name','开盘价': 'open_price', '收盘价': 'close_price', '最高价': 'high_price',
-                               '最低价': 'low_price', '前收盘': 'before_open_price', '成交量': 'volume', '成交金额': 'turnover', '涨跌幅': 'change_percent',
-                               '涨跌额': 'change_amount', '换手率': 'turnover_rate', '总市值': 'total_market_value', '流通市值': 'circulating_market_value'}, inplace=True)
-            df = df[['trade_date', 'stock_code', 'stock_name', 'before_open_price','open_price', 'close_price', 'high_price', 'low_price',
+            df.rename(columns={'日期': 'trade_date', '名称': 'stock_name', '开盘价': 'open_price',
+                               '收盘价': 'close_price', '最高价': 'high_price',
+                               '最低价': 'low_price', '前收盘': 'before_open_price', '成交量': 'volume', '成交金额': 'turnover',
+                               '涨跌幅': 'change_percent',
+                               '涨跌额': 'change_amount', '换手率': 'turnover_rate', '总市值': 'total_market_value',
+                               '流通市值': 'circulating_market_value'}, inplace=True)
+            df = df[['trade_date', 'stock_code', 'stock_name', 'before_open_price', 'open_price', 'close_price',
+                     'high_price', 'low_price',
                      'volume',
-                     'turnover', 'change_percent', 'change_amount', 'turnover_rate','total_market_value','circulating_market_value']]
+                     'turnover', 'change_percent', 'change_amount', 'turnover_rate', 'total_market_value',
+                     'circulating_market_value']]
+            # MySQL无法处理nan
+            df = df.replace({np.nan: None})
             return df
         except Exception as e:
             print(e)
     return pd.DataFrame
 
 
+# nohup python ods_163_stock_quotes_di.py update 20221010 20221010 >> my.log 2>&1 &
+# python ods_163_stock_quotes_di.py all
+# python ods_163_stock_quotes_di.py update 20221104 20221104
 if __name__ == '__main__':
     code_list = get_code_list_v2()
 
@@ -128,4 +144,5 @@ if __name__ == '__main__':
 
     start_time = time.time()
     multiprocess_run(code_list, start_date, end_date, engine, process_num)
-    print('程序运行时间：{}s'.format(time.time() - start_time))
+    end_time = time.time()
+    print('程序运行时间：{}s，{}分钟'.format(end_time - start_time, (end_time - start_time) / 60))

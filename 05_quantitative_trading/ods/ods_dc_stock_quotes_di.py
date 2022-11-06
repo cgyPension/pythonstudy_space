@@ -91,11 +91,11 @@ def get_data(ak_code, ak_name, period, start_date, end_date, adjust):
             if df.empty:
                 continue
             if ak_code.startswith('6'):
-                df['stock_code'] = ak_code + '.SH'
+                df['stock_code'] = 'sh' + ak_code
             elif ak_code.startswith('8') or ak_code.startswith('4') == True:
-                df['stock_code'] = ak_code + '.BJ'
+                df['stock_code'] = 'bj' + ak_code
             else:
-                df['stock_code'] = ak_code + '.SZ'
+                df['stock_code'] = 'sz' + ak_code
 
             df['stock_name'] = ak_name
             df.rename(columns={'日期': 'trade_date', '开盘': 'open_price', '收盘': 'close_price', '最高': 'high_price',
@@ -110,7 +110,8 @@ def get_data(ak_code, ak_name, period, start_date, end_date, adjust):
             print(e)
     return pd.DataFrame
 
-# nohup python app.py update 20221010 20221010>> my.log 2>&1 &
+# nohup python ods_dc_stock_quotes_di.py update 20221010 20221010 >> my.log 2>&1 &
+# python ods_dc_stock_quotes_di.py all
 if __name__ == '__main__':
     code_list = get_code_list_v2()
     # code_list = np.array(pd.DataFrame(
@@ -141,4 +142,5 @@ if __name__ == '__main__':
 
     start_time = time.time()
     multiprocess_run(code_list, period, start_date, end_date, adjust, engine, process_num)
-    print('程序运行时间：{}s'.format(time.time() - start_time))
+    end_time = time.time()
+    print('程序运行时间：{}s，{}分钟'.format(end_time - start_time, (end_time - start_time) / 60))

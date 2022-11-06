@@ -34,7 +34,7 @@ create table ods_163_stock_quotes_di
     close_price  decimal(20, 4) null comment '收盘价',
     high_price  decimal(20, 4) null comment '最高价',
     low_price  decimal(20, 4) null comment '最低价',
-    volume  bigint null comment '成交量',
+    volume  decimal(20, 4) null comment '成交量',
     turnover  decimal(20, 4) null comment '成交额',
     change_percent  decimal(20, 4) null comment '涨跌幅',
     change_amount  decimal(20, 4) null comment '涨跌额',
@@ -62,6 +62,10 @@ create table ods_dc_stock_tfp_di
     primary key (trade_date, stock_code)
 ) comment '东方财富网-数据中心-特色数据-两市停复牌表';
 
+--财务数据
+--行业板块
+--概率板块
+
 --股票加个标签拼接s字段
 create table dim_stock_label
 (
@@ -70,35 +74,45 @@ create table dim_stock_label
     business_caliber   varchar(226) null comment '业务口径（计算逻辑、文字指标口径）',
     technical_caliber        varchar(226) null comment '技术口径',
     label_type int comment '标签类型：1规则标签; 2统计标签; 3挖掘标签',
+    is_factor  int default 0 comment '是否因子 0否 1是',
     stock_label_description varchar(226) null comment '标签描述',
     create_time       datetime(3) default CURRENT_TIMESTAMP (3) comment '创建时间',
     update_time       datetime(3) on update current_timestamp (3) comment '更新时间'
 ) comment '股票标签';
-insert into dim_stock_label (stock_label_name,business_caliber,label_type,stock_label_description)
-VALUES ('小市值','总市值<=50亿',1,'小市值官网为20~30亿'),
-       ('上穿5日均线','最高价>N日移动平均线=N日收盘价之和/N',2,''),
-       ('上穿10日均线','最高价>N日移动平均线=N日收盘价之和/N',2,''),
-       ('上穿20日均线','最高价>N日移动平均线=N日收盘价之和/N',2,''),
-       ('上穿30日均线','最高价>N日移动平均线=N日收盘价之和/N',2,''),
-       ('上穿60日均线','最高价>N日移动平均线=N日收盘价之和/N',2,''),
-       ('超卖','',''),
+insert into dim_stock_label (stock_label_name,business_caliber,label_type,is_factor,stock_label_description)
+VALUES ('小市值','总市值<33.3%排名',1,1,'小市值官网为20~30亿;用percent_rank() <33.3%排名'),
+       ('上穿5日均线','最高价>N日移动平均线=N日收盘价之和/N',2,0,''),
+       ('上穿10日均线','最高价>N日移动平均线=N日收盘价之和/N',2,0,''),
+       ('上穿20日均线','最高价>N日移动平均线=N日收盘价之和/N',2,0,''),
+       ('上穿30日均线','最高价>N日移动平均线=N日收盘价之和/N',2,0,''),
+       ('上穿60日均线','最高价>N日移动平均线=N日收盘价之和/N',2,0,''),
+       ('adtm买入信号','',''),
+       ('boll买入信号','',''),
+       ('bbiboll买入信号','',''),
+       ('dpo买入信号','',''),
+       ('cci买入信号','',''),
+       ('rsi金叉','',''),
        ('cr金叉','',''),
+       ('塔形底','',''),
+       ('业绩预增','',''),
+
+       ('adtm卖出信号','',''),
+       ('boll卖出信号','',''),
+       ('bbiboll卖出信号','',''),
+       ('dpo卖出信号','',''),
+       ('cci卖出信号','',''),
+       ('超卖','',''),
        ('首板涨停','',''),
        ('高量柱','',''),
        ('消费股','',''),
-       ('cci买入信号','',''),
-       ('rsi金叉','',''),
        ('低价股','',''),
        ('平台突破','',''),
-       ('业绩预增','',''),
        ('股权集中','',''),
        ('机构重仓','',''),
        ('持续放量','',''),
        ('放巨量','',''),
-       ('dpo买入信号','',''),
        ('价升量涨','',''),
-       ('看涨吞没','',''),
-       ('保险持股','','');
+       ('看涨吞没','','');
 
 -- 标签组成策略
 -- 回测时间 回测的一些指标子段输入到dws（股票角度） ads dim（策略角度）
@@ -107,13 +121,13 @@ create table dim_stock_strategy
     stock_strategy_id    int auto_incremen comment '股票策略id' primary key,
     stock_strategy_name varchar(226) null comment '股票策略名称 股票标签名称 +拼接',
     stock_label_ids    varchar(26) auto_incremen comment '股票标签id ,拼接',
-    holding_period   int default 0 null comment '推荐持股周期：5日、30日',
     holding_yield_td decimal(20, 4) null comment '截止当天持股收益率',
     holding_yield_before decimal(20, 4) null comment '上期持股收益率',
     strategy_type  int default 0 comment '策略类型：0选股策略;1择时策略',
     backtest_yield  decimal(20, 4) null comment '回测收益率',
     max_retrace  decimal(20, 4) null comment '最大回撤',
-    backtest_time   datetime(3) null comment '回测时间',
+    backtest_start_date   date null comment '回测数据开始日期',
+    backtest_end_date   date null comment '回测数据结束日期',
     create_time    datetime(3) default CURRENT_TIMESTAMP (3) comment '创建时间',
     update_time    datetime(3) on update current_timestamp (3) comment '更新时间'
 ) comment '股票策略';
@@ -139,7 +153,7 @@ create table dwd_stock_quotes_di
     close_price  decimal(20, 4) null comment '收盘价',
     high_price  decimal(20, 4) null comment '最高价',
     low_price  decimal(20, 4) null comment '最低价',
-    volume  bigint null comment '成交量',
+    volume  decimal(20, 4) null comment '成交量',
     turnover  decimal(20, 4) null comment '成交额',
     amplitude   decimal(20, 4) null comment '振幅',
     change_percent  decimal(20, 4) null comment '涨跌幅',
@@ -148,7 +162,8 @@ create table dwd_stock_quotes_di
 
     total_market_value  decimal(20, 4) null comment '总市值',
     circulating_market_value  decimal(20, 4) null comment '流通市值',
-    industry_sector   varchar(26) null comment '行业板块',
+    industry_plate   varchar(26) null comment '行业板块',
+    concept_plate   varchar(26) null comment '概念板块',
 
     ma_5d decimal(20, 4) null comment '5日均线',
     ma_10d decimal(20, 4) null comment '10日均线',
@@ -159,6 +174,9 @@ create table dwd_stock_quotes_di
     stock_label_ids   varchar(26) null comment '股票标签id ,拼接',
     stock_label_names   varchar(226) null comment '股票标签名称 ,拼接',
     stock_label_num   int default 0 comment '股票标签数量',
+    factor_ids   varchar(26) null comment '因子标签id ,拼接',
+    factor_names   varchar(226) null comment '因子标签名称 ,拼接',
+    factor_num   int default 0 comment '因子标签数量',
 
     holding_yield_5d  decimal(20, 2) null comment '持股5日后收益率',
     holding_yield_10d  decimal(20, 2) null comment '持股10日后收益率',
@@ -178,51 +196,6 @@ create table dwd_stock_quotes_di
 
 
 -- 排除停牌数据
-create table dws_stock_candidate_di
-(
-    trade_date date not null comment '交易日期',
-    stock_code varchar(26) not null comment '股票代码',
-    stock_name varchar(26) null comment '股票名称',
-    open_price  decimal(20, 4) null comment '开盘价',
-    close_price  decimal(20, 4) null comment '收盘价',
-    high_price  decimal(20, 4) null comment '最高价',
-    low_price  decimal(20, 4) null comment '最低价',
-    volume  bigint null comment '成交量',
-    turnover  decimal(20, 4) null comment '成交额',
-    amplitude   decimal(20, 4) null comment '振幅',
-    change_percent  decimal(20, 4) null comment '涨跌幅',
-    change_amount  decimal(20, 4) null comment '涨跌额',
-    turnover_rate  decimal(20, 4) null comment '换手率',
-
-    total_market_value  decimal(20, 4) null comment '总市值',
-    circulating_market_value  decimal(20, 4) null comment '流通市值',
-    industry_sector   varchar(26) null comment '行业板块',
-
-    ma_5d decimal(20, 4) null comment '5日均线',
-    ma_10d decimal(20, 4) null comment '10日均线',
-    ma_20d decimal(20, 4) null comment '20日均线',
-    ma_30d decimal(20, 4) null comment '30日均线',
-    ma_60d decimal(20, 4) null comment '60日均线',
-
-    stock_label_ids   varchar(26) null comment '股票标签id ,拼接',
-    stock_label_names   varchar(226) null comment '股票标签名称 ,拼接',
-    stock_label_num   int default 0 comment '股票标签数量',
-    stock_strategy_name varchar(226) null comment '股票策略名称 股票标签名称 +拼接',
-    scores decimal(20, 4) null comment '分数',
-    stock_strategy_ranking varchar(26) null comment '策略内排行rank',
-
-    holding_yield_5d  decimal(20, 2) null comment '持股5日后收益率',
-    holding_yield_10d  decimal(20, 2) null comment '持股10后日收益率',
-
-    backtest_yield  decimal(20, 4) null comment '回测收益率',
-    max_retrace  decimal(20, 4) null comment '最大回撤',
-    backtest_time   datetime(3) null comment '回测时间',
-    create_time datetime(3) default current_timestamp(3) comment '创建时间',
-    update_time datetime(3) on update current_timestamp (3) comment '更新时间',
-
-    primary key (trade_date, stock_code)
-) comment '股票候选 （>=80分 或top10）';
-
 create table ads_stock_suggest_di
 (
     trade_date date not null comment '交易日期',
@@ -232,7 +205,7 @@ create table ads_stock_suggest_di
     close_price  decimal(20, 4) null comment '收盘价',
     high_price  decimal(20, 4) null comment '最高价',
     low_price  decimal(20, 4) null comment '最低价',
-    volume  bigint null comment '成交量',
+    volume  decimal(20, 4) null comment '成交量',
     turnover  decimal(20, 4) null comment '成交额',
     amplitude   decimal(20, 4) null comment '振幅',
     change_percent  decimal(20, 4) null comment '涨跌幅',
@@ -241,7 +214,8 @@ create table ads_stock_suggest_di
 
     total_market_value  decimal(20, 4) null comment '总市值',
     circulating_market_value  decimal(20, 4) null comment '流通市值',
-    industry_sector   varchar(26) null comment '行业板块',
+    industry_plate   varchar(26) null comment '行业板块',
+    concept_plate   varchar(26) null comment '概念板块',
 
     ma_5d decimal(20, 4) null comment '5日均线',
     ma_10d decimal(20, 4) null comment '10日均线',
@@ -252,9 +226,11 @@ create table ads_stock_suggest_di
     stock_label_ids   varchar(26) null comment '股票标签id ,拼接',
     stock_label_names   varchar(226) null comment '股票标签名称 ,拼接',
     stock_label_num   int default 0 comment '股票标签数量',
+    factor_ids   varchar(26) null comment '因子标签id ,拼接',
+    factor_names   varchar(226) null comment '因子标签名称 ,拼接',
+    factor_num   int default 0 comment '因子标签数量',
     stock_strategy_name varchar(226) null comment '股票策略名称 股票标签名称 +拼接',
-    scores decimal(20, 4) null comment '分数',
-    stock_strategy_ranking varchar(26) null comment '策略内排行rank',
+    stock_strategy_ranking varchar(26) null comment '策略内排行 dense_rank',
 
     suggest_buy_price decimal(20, 2) null comment '推荐买价',
     suggest_stop_profit decimal(20, 2) null comment '推荐止盈',
@@ -265,11 +241,12 @@ create table ads_stock_suggest_di
 
     backtest_yield  decimal(20, 4) null comment '回测收益率',
     max_retrace  decimal(20, 4) null comment '最大回撤',
-    backtest_time   datetime(3) null comment '回测时间',
+    backtest_start_date   date null comment '回测数据开始日期',
+    backtest_end_date   date null comment '回测数据结束日期',
     create_time datetime(3) default current_timestamp(3) comment '创建时间',
     update_time datetime(3) on update current_timestamp (3) comment '更新时间',
     primary key (create_time, stock_code)
-) comment '股票推荐 （top3）';
+) comment '股票推荐 （top10）';
 
 
 
@@ -281,8 +258,8 @@ create table ads_stock_suggest_di
 truncate table dwd_stock_quotes_di;
 insert into dwd_stock_quotes_di (trade_date, stock_code, stock_name, open_price, close_price, high_price, low_price,
                                  volume, turnover, amplitude, change_percent, change_amount, turnover_rate,
-                                 total_market_value, circulating_market_value, industry_sector, ma_5d, ma_10d, ma_20d,
-                                 ma_30d, ma_60d, stock_label_ids, stock_label_names, stock_label_num, holding_yield_5d,
+                                 total_market_value, circulating_market_value, industry_plate, concept_plate,ma_5d, ma_10d, ma_20d,
+                                 ma_30d, ma_60d, stock_label_ids, stock_label_names, stock_label_num, factor_ids,factor_names,factor_num,holding_yield_5d,
                                  holding_yield_10d, suspension_time, suspension_deadline, suspension_period,
                                  suspension_reason, belongs_market, estimated_resumption_time)
 with tmp_01 as (
@@ -301,7 +278,8 @@ select t1.trade_date,
        t1.turnover_rate,
        t2.total_market_value,
        t2.circulating_market_value,
-       null as industry_sector,#行业板块
+       null as industry_plate,#行业板块
+       null as concept_plate,#概念板块
        # 如果不够5日数据 则为空
        if(lag(t1.close_price,4,null)over(partition by t1.trade_date,t1.stock_code order by t1.trade_date,t1.stock_code) is null,null,avg(t1.close_price)over(partition by t1.trade_date,t1.stock_code order by t1.trade_date,t1.stock_code rows between 4 preceding and current row)) as ma_5d,
        if(lag(t1.close_price,9,null)over(partition by t1.trade_date,t1.stock_code order by t1.trade_date,t1.stock_code) is null,null,avg(t1.close_price)over(partition by t1.trade_date,t1.stock_code order by t1.trade_date,t1.stock_code rows between 9 preceding and current row)) as ma_10d,
@@ -339,20 +317,21 @@ select trade_date,
        turnover_rate,
        total_market_value,
        circulating_market_value,
-       industry_sector,
+       industry_plate,
+       concept_plate,
        ma_5d,
        ma_10d,
        ma_20d,
        ma_30d,
        ma_60d,
-       concat_ws(',',if(total_market_value<=5000000000,1,null),
+       concat_ws(',',if(percent_rank()over(partition by trade_date order by total_market_value)<0.333,1,null),
                      if(high_price>ma_5d,2,null),
                      if(high_price>ma_10d,3,null),
                      if(high_price>ma_20d,4,null),
                      if(high_price>ma_30d,5,null),
                      if(high_price>ma_60d,6,null)
        ) as stock_label_ids,
-       concat_ws(',',if(total_market_value<=5000000000,'小市值',null),
+       concat_ws(',',if(percent_rank()over(partition by trade_date order by total_market_value)<0.333,'小市值',null),
                      if(high_price>ma_5d,'上穿5日均线',null),
                      if(high_price>ma_10d,'上穿10日均线',null),
                      if(high_price>ma_20d,'上穿20日均线',null),
@@ -360,13 +339,16 @@ select trade_date,
                      if(high_price>ma_60d,'上穿60日均线',null)
        ) as stock_label_names,
        (
-           if(total_market_value<=5000000000,1,0)+
+           if(percent_rank()over(partition by trade_date order by total_market_value)<0.333,1,0)+
            if(high_price>ma_5d,1,0)+
            if(high_price>ma_10d,1,0)+
            if(high_price>ma_20d,1,0)+
            if(high_price>ma_30d,1,0)+
            if(high_price>ma_60d,1,0)
         ) as stock_label_num,
+       null as factor_ids,
+       null as factor_names,
+       null as factor_num,
        holding_yield_5d,
        holding_yield_10d,
        suspension_time,
