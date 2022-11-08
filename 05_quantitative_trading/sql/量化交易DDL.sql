@@ -24,6 +24,25 @@ create table ods_dc_stock_quotes_di
     primary key (trade_date, stock_code)
 ) comment '东财沪深A股行情表 （后复权）';
 
+-- --财务数据
+create table ods_lg_indicator_di
+(
+    trade_date date not null comment '交易日期',
+    stock_code varchar(26) not null comment '股票代码',
+    stock_name varchar(26) null comment '股票名称',
+    pe  decimal(20, 4) null comment '市盈率',
+    pe_ttm  decimal(20, 4) null comment '市盈率TTM',
+    pb  decimal(20, 4) null comment '市净率',
+    ps  decimal(20, 4) null comment '市销率',
+    ps_ttm  decimal(20, 4) null comment '市销率TTM',
+    dv_ratio  decimal(20, 4) null comment '股息率',
+    dv_ttm  decimal(20, 4) null comment '股息率TTM',
+    total_market_value  decimal(20, 4) null comment '总市值',
+    create_time datetime(3) default current_timestamp(3) comment '创建时间',
+    update_time datetime(3) on update current_timestamp (3) comment '更新时间',
+    primary key (trade_date, stock_code)
+) comment '乐咕乐股-A 股个股指标表';
+
 create table ods_163_stock_quotes_di
 (
     trade_date date not null comment '交易日期',
@@ -46,6 +65,9 @@ create table ods_163_stock_quotes_di
     primary key (trade_date, stock_code)
 ) comment '网易财经沪深A股行情表（不复权）';
 
+--行业板块
+--概率板块
+
 create table ods_dc_stock_tfp_di
 (
     trade_date date not null comment '交易日期',
@@ -61,10 +83,6 @@ create table ods_dc_stock_tfp_di
     update_time datetime(3) on update current_timestamp (3) comment '更新时间',
     primary key (trade_date, stock_code)
 ) comment '东方财富网-数据中心-特色数据-两市停复牌表';
-
---财务数据
---行业板块
---概率板块
 
 --股票加个标签拼接s字段
 create table dim_stock_label

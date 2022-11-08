@@ -1,3 +1,5 @@
+import datetime
+
 import numpy
 import numpy as np
 import pandas as pd
@@ -184,3 +186,8 @@ daterange = pd.date_range(start_date, end_date)
 # print(daterange)
 for single_date in daterange:
     print(single_date.strftime("%Y%m%d"))
+
+
+stock_a_indicator_df = ak.stock_a_lg_indicator(symbol="601398")
+print(stock_a_indicator_df[stock_a_indicator_df['trade_date']>datetime.datetime.strptime('20221103', '%Y%m%d').date()])
+print(stock_a_indicator_df[stock_a_indicator_df['trade_date']>pd.to_datetime("2022-11-03").date()])
