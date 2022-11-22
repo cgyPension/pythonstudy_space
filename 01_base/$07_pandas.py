@@ -191,3 +191,13 @@ for single_date in daterange:
 stock_a_indicator_df = ak.stock_a_lg_indicator(symbol="601398")
 print(stock_a_indicator_df[stock_a_indicator_df['trade_date']>datetime.datetime.strptime('20221103', '%Y%m%d').date()])
 print(stock_a_indicator_df[stock_a_indicator_df['trade_date']>pd.to_datetime("2022-11-03").date()])
+
+# todo ====================================================================  空df追加  ==================================================================
+# 不会再原来df上追加 只会形成新的df
+df1 = pd.DataFrame()
+df3 = df1.append(df2)
+print(df3)
+
+data_dic = {'机型': ['小米12', '华为P40', 'IQOO8', 'iphone13'], '价格': [3999, 5000, 3899, 5999],
+            '颜色': ['白色', '紫色', '金色', '白色']}
+df = pd.DataFrame(data_dic)

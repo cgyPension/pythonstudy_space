@@ -4,6 +4,9 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/05_quantitative_trading" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/05_quantitative_trading_hive" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/05_quantitative_trading_hive" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/05_quantitative_trading_mysql" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
