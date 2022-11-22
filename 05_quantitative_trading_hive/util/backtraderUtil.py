@@ -40,7 +40,7 @@ class MyCustomdata(bt.feeds.PandasData):
 
 class stockStrategy(bt.Strategy):
     '''多因子选股策略 - 直接指标选股'''
-
+    # 可选，设置回测的可变参数：如移动均线的周期
     params = (("maperiod", 20),
               ('printlog', False),)  # 全局设定交易策略的参数, maperiod 是 MA 均值的长度
 
@@ -172,7 +172,9 @@ where td between '%s' and '%s'
     # pd_df['openinterest'] = 0
 
 
-    cerebro = bt.Cerebro()
+    # cerebro = bt.Cerebro()
+    # 禁止默认观察者 提高速度
+    cerebro = bt.Cerebro(stdstats=False)
     # 按股票代码，依次循环传入数据
     # for stock in pd_df['stock_code'].unique():
     #     # 日期对齐

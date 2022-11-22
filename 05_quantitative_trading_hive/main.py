@@ -51,7 +51,7 @@ def task_update_daily():
 
     ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
     # 财务
-    # ods_lg_indicator_di.multiprocess_run(code_list, start_date, hive_engine, process_num)
+    ods_lg_indicator_di.multiprocess_run(code_list, start_date, hive_engine, process_num)
     ods_stock_lrb_em_di.get_data(start_date, end_date)
     # 这个全量很慢 平时不能全量跑
     # ods_financial_analysis_indicator_di.multiprocess_run(code_list, start_date, hive_engine)
@@ -67,10 +67,8 @@ def task_update_daily():
     ods_dc_stock_concept_plate_df.multiprocess_run(process_num)
     dim_dc_stock_plate_df.get_data()
 
-
-    # dwd_stock_quotes_di.get_data(start_date, end_date)
-    #
-    # ads_stock_suggest_di.get_data(start_date, end_date)
+    dwd_stock_quotes_di.get_data(start_date, end_date)
+    ads_stock_suggest_di.get_data(start_date, end_date)
     # AdsSendMail.get_data()
 
 
@@ -86,8 +84,9 @@ def task_update_daily():
 # sched.add_job(task_update_daily, 'cron', day_of_week='mon-fri', hour=9, minute=25)
 # sched.start()
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/main.py all
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/main.py all
 # nohup /opt/code/05_quantitative_trading_hive/main.py update 20221010 20221010 >> my.log 2>&1 &
-# python /opt/code/05_quantitative_trading_hive/main.py update 20221121 20221121
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update 20221122 20221122
 if __name__ == '__main__':
     task_update_daily()

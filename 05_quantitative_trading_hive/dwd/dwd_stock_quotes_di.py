@@ -40,23 +40,27 @@ def get_data(start_date, end_date):
         # 本地模式
         spark = get_spark(appName)
         s_date = '20210101'
-        td_df = ak.tool_trade_date_hist_sina()
-        daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
-        # 增量 前5个交易日 但是要预够假期
-        start_date = daterange_df.iloc[-5,0]
         end_date = pd.to_datetime(end_date).date()
 
+        td_df = ak.tool_trade_date_hist_sina()
+        daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
+        daterange_df = daterange_df.iloc[-5:, 0].reset_index(drop=True)
+        # 增量 要前5个交易日 但是要预够假期 不够取最靠近前5的交易日
+        if daterange_df.empty:
+            start_date = pd.to_datetime(start_date).date()
+        else:
+            start_date = pd.to_datetime(daterange_df[0]).date()
 
         spark.sql("""
 with t3 as (
 select *,
       if(lead(announcement_date,1)over(partition by stock_code order by announcement_date) is null,'9999-12-01',lead(announcement_date,1)over(partition by stock_code order by announcement_date)) as end_date
-from ods_stock_lrb_em_di
+from stock.ods_stock_lrb_em_di
 ),
 t4 as (
 select *,
       if(lead(announcement_date,1)over(partition by stock_code order by announcement_date) is null,'9999-12-01',lead(announcement_date,1)over(partition by stock_code order by announcement_date)) as end_date
-from ods_financial_analysis_indicator_di
+from stock.ods_financial_analysis_indicator_di
 ),
 t5 as (
 -- 有同一天上榜两次的情况,把原因凭借其他金额类字段去掉 ；拼接字段名加s
@@ -64,7 +68,7 @@ select trade_date,
        stock_code,
        concat_ws(';',collect_list(interpret)) as interprets,
        concat_ws(';',collect_list(reason_for_lhb)) as reason_for_lhbs
-from ods_stock_lhb_detail_em_di
+from stock.ods_stock_lhb_detail_em_di
 where td between '%s' and '%s'
       group by td,trade_date,stock_code
 )
@@ -123,8 +127,8 @@ select t1.trade_date,
        if(lag(t1.close_price,59)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 59 preceding and current row)) as ma_60d,
        if(lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(t1.open_price-lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date))/t1.open_price) as holding_yield_2d,
        if(lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(t1.open_price-lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date))/t1.open_price) as holding_yield_5d
-from ods_dc_stock_quotes_di t1
-left join ods_lg_indicator_di t2
+from stock.ods_dc_stock_quotes_di t1
+left join stock.ods_lg_indicator_di t2
         on t1.trade_date = t2.trade_date
             and t1.stock_code = t2.stock_code
             and t1.td between '%s' and '%s'
@@ -140,7 +144,7 @@ left join  t4
 left join t5
        on t1.trade_date = t5.trade_date
             and t1.stock_code = t5.stock_code
-left join dim_dc_stock_plate_df plate
+left join stock.dim_dc_stock_plate_df plate
         on t1.stock_code = plate.stock_code
 where t1.td between '%s' and '%s'
         """% (start_date,end_date,start_date,end_date,start_date,end_date)).createOrReplaceTempView('tmp_dwd_01')
@@ -263,7 +267,7 @@ select t1.trade_date,
        current_timestamp() as update_time,
        t1.trade_date as td
 from tmp_dwd_02 t1
-left join ods_dc_stock_tfp_di tfp
+left join stock.ods_dc_stock_tfp_di tfp
     on t1.trade_date = tfp.trade_date
         and t1.stock_code = tfp.stock_code
         and tfp.td between '%s' and '%s'
@@ -275,7 +279,7 @@ left join ods_dc_stock_tfp_di tfp
         print(e)
     print('{}：执行完毕！！！'.format(appName))
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/dwd_stock_quotes_di.py all
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dwd/dwd_stock_quotes_di.py all
 # nohup dwd_stock_quotes_di.py update 20221101 >> my.log 2>&1 &
 # python dwd_stock_quotes_di.py all
 # python dwd_stock_quotes_di.py update 20210101 20211231

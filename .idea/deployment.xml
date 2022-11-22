@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="cgy@hadoop102:22" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="cgy@hadoop102:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/opt/code/pythonstudy_space" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

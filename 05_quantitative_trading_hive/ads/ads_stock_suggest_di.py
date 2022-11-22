@@ -32,13 +32,16 @@ def get_data(start_date, end_date):
    start_date = date.today().strftime('%Y%m%d') if start_date == '20210101' else start_date
 
    s_date = '20210101'
-   td_df = ak.tool_trade_date_hist_sina()
-   daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
-   # 增量 前5个交易日 但是要预够假期
-   start_date = daterange_df.iloc[-5, 0]
    end_date = pd.to_datetime(end_date).date()
 
-
+   td_df = ak.tool_trade_date_hist_sina()
+   daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
+   daterange_df = daterange_df.iloc[-5:, 0].reset_index(drop=True)
+   # 增量 要前5个交易日 但是要预够假期 不够取最靠近前5的交易日
+   if daterange_df.empty:
+       start_date = pd.to_datetime(start_date).date()
+   else:
+       start_date = pd.to_datetime(daterange_df[0]).date()
 
    spark_df = spark.sql(
    """
@@ -47,7 +50,7 @@ select *,
        dense_rank()over(partition by td order by total_market_value) as dr_tmv,
        dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
        dense_rank()over(partition by td order by pe_ttm) as dr_pe_ttm
-from dwd_stock_quotes_di
+from stock.dwd_stock_quotes_di
 where td between '%s' and '%s'
         -- 剔除京股
         and substr(stock_code,1,2) != 'bj'
@@ -142,7 +145,9 @@ where stock_strategy_ranking <=10
        print(e)
    print('{}：执行完毕！！！'.format(appName))
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/ads_stock_suggest_di.py all
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py all
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update 20221110
 # nohup ads_stock_suggest_di.py update 20221010 20221010 >> my.log 2>&1 &
 # python ads_stock_suggest_di.py update 20221110 20221110
 if __name__ == '__main__':

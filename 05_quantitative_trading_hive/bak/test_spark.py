@@ -82,11 +82,11 @@ spark-submit \
 # os.environ["SPARK_HOME"]="/opt/module/spark-3.2.0"
 # os.environ["PYSPARK_PYTHON"]="/opt/module/anaconda3/envs/pyspark_env/bin/python"
 # os.environ["PYSPARK_DRIVER_PYTHON"]="/opt/module/anaconda3/envs/pyspark_env/bin/python"
+# 这个要用远程调试执行 不然本地读不了linux
 if __name__ == '__main__':
     appName= os.path.basename(__file__)
     # 本地模式
     spark = get_spark(appName)
-
 
     # todo 有些sql只能hive执行 sql不支持 不能加;号
     # engine = hiveUtil().engine

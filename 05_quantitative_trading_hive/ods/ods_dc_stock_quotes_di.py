@@ -52,26 +52,22 @@ def multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine
 
     # 多进程的需要合并分区内小文件
     # 全量的话用hive合并分区很慢
-    # hive_sql="""show partitions %s""" % ('stock.ods_dc_stock_quotes_di')
-    # pd_df = pd.read_sql(hive_sql, hive_engine)
-    # pd_df['partition'] = pd.to_datetime(pd_df['partition'].apply(lambda x: x.split('=')[1]))
-    # pd_df = pd_df[(pd_df.partition >= pd.to_datetime(start_date)) & (pd_df.partition <= pd.to_datetime(end_date))]
-    # for single_date in pd_df.partition:
-    #     hive_engine.execute("""alter table stock.ods_dc_stock_quotes_di partition (td ='%s') concatenate""" % (single_date.strftime("%Y-%m-%d")))
-    spark.sql("""
-    create table tmp_merage_df as
-    select *
-    from stock.ods_dc_stock_quotes_di
-    where td between '%s' and '%s'
-            """ % (start_date, end_date))
-
-    # createOrReplaceTempView('tmp_merge_ods_dc_stock_quotes_di')
-
-    merge_df = spark.sql("""select * from tmp_merage_df""")
+    hive_sql="""show partitions %s""" % ('stock.ods_dc_stock_quotes_di')
+    pd_df = pd.read_sql(hive_sql, hive_engine)
+    pd_df['partition'] = pd.to_datetime(pd_df['partition'].apply(lambda x: x.split('=')[1]))
+    pd_df = pd_df[(pd_df.partition >= pd.to_datetime(start_date)) & (pd_df.partition <= pd.to_datetime(end_date))]
+    for single_date in pd_df.partition:
+        hive_engine.execute("""alter table stock.ods_dc_stock_quotes_di partition (td ='%s') concatenate""" % (single_date.strftime("%Y-%m-%d")))
+    # spark.sql("""
+    # select *
+    # from stock.ods_dc_stock_quotes_di
+    #     where td between '%s' and '%s'
+    #         """ % (start_date, end_date)).createOrReplaceTempView('tmp_merge_ods_dc_stock_quotes_di')
+    #
+    # merge_df = spark.sql("""select * from tmp_merge_ods_dc_stock_quotes_di""")
     # 不知道为什么覆盖分区失效 再删一次
-    hive_engine.execute("""alter table stock.ods_dc_stock_quotes_di drop if exists partition (td >= '%s',td <='%s')""" % (pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date()))
     # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 1 个数据文件。
-    merge_df.repartition(1).write.insertInto('stock.ods_dc_stock_quotes_di', overwrite=True)
+    # merge_df.repartition(1).write.insertInto('stock.ods_dc_stock_quotes_di', overwrite=True)
     spark.stop
     print('{}：执行完毕！！！'.format(appName))
 
@@ -135,8 +131,9 @@ def get_data(ak_code, ak_name, period, start_date, end_date, adjust):
     return pd.DataFrame
 
 # 有hive连接不能用spark-submit方式提交？
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py all
-# nohup python /opt/code/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py update 20221121 20221121 >> my.log 2>&1 &
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py update 20221121 20221121
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py all
+# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py update 20221121 20221121 >> my.log 2>&1 &
 # python ods_dc_stock_quotes_di.py all
 if __name__ == '__main__':
     code_list = get_code_list()
