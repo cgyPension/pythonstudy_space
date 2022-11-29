@@ -226,7 +226,7 @@ create table dim_dc_stock_plate_df
 --股票加个标签拼接s字段
 create table dim_stock_label
 (
-    stock_label_id    int auto_incremen comment '股票标签id' primary key,
+    stock_label_id    int comment '股票标签id' primary key auto_incremen,
     stock_label_name    varchar(26) null comment '股票标签名称 负面标签后缀用-',
     business_caliber   varchar(226) null comment '业务口径（计算逻辑、文字指标口径）',
 --     technical_caliber        varchar(226) null comment '技术口径',
@@ -281,7 +281,7 @@ VALUES ('小市值','总市值<33.3%排名',1,1,'小市值官网为20~30亿;用p
 -- 回测时间 回测的一些指标子段输入到dws（股票角度） ads dim（策略角度）
 create table dim_stock_strategy
 (
-    stock_strategy_id    int auto_incremen comment '股票策略id' primary key,
+    stock_strategy_id    int comment '股票策略id' primary key auto_incremen,
     stock_strategy_name varchar(226) null comment '股票策略名称 股票标签名称 +拼接',
 --     stock_label_ids    varchar(26) auto_incremen comment '股票标签id ,拼接',
     holding_yield_td decimal(20, 4) null comment '截止当天持股收益率',

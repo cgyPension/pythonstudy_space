@@ -1,17 +1,14 @@
 import os
 import sys
-
-from util.CommonUtils import get_spark
+# 在linux会识别不了包 所以要加临时搜索目录
+from util.udfUtils import registerUDF
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
+from util.CommonUtils import get_spark
 from util.DBUtils import hiveUtil
-
-# 在linux会识别不了包 所以要加临时搜索目录
-
-
 
 import warnings
 import pandas as pd
@@ -93,7 +90,10 @@ if __name__ == '__main__':
     # hive_sql="""alter table stock.ods_dc_stock_quotes_di drop if exists partition (td >= '2022-11-07',td <='2022-11-11')"""
     # engine.execute(hive_sql)
 
+    registerUDF(spark)
     spark.sql("""select * from test.student""").show()
+
+
     print('{}：执行完毕！！！'.format(appName))
     # 新浪财经的股票交易日历数据
     # tmp_df = ak.tool_trade_date_hist_sina()

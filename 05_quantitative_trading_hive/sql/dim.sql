@@ -2,6 +2,82 @@ create database stock;
 use stock;
 
 -- TODO =========================================================  xx  =====================================================================
+drop table if exists dim_stock_label;
+create table if not exists dim_stock_label
+(
+--     stock_label_id          int comment '股票标签id',
+    stock_label_name        string comment '股票标签名称 负面标签后缀用-',
+    business_caliber        string comment '业务口径（计算逻辑、文字指标口径）',
+--     label_type              int comment '标签类型：1规则标签; 2统计标签; 3挖掘标签',
+    is_factor               int comment '是否因子 0否 1是',
+    stock_label_description string comment '标签描述',
+    update_time             timestamp comment '更新时间'
+) comment '股票标签'
+    row format delimited fields terminated by '\t'
+    stored as orc tblproperties ('orc.compress' = 'snappy');
+insert into dim_stock_label VALUES
+       ('小市值','总市值<33.3%排名',1,'小市值官网为20~30亿;用percent_rank() <33.3%排名',current_timestamp()),
+       --均线的标签要不要删除？
+       ('上穿5日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
+       ('上穿10日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
+       ('上穿20日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
+       ('上穿30日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
+       ('上穿60日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
+       ('连续两天放量-','连续两天量比>1',1,null,current_timestamp()),
+       ('连续两天放量且低收-','连续两天量比>1 连续两天放量且连续两天收盘比开盘低',1,null,current_timestamp()),
+-- 龙虎榜 解读 要分买 卖 正负 主力做T(T+0)不当 龙虎榜是用买卖，还是用那个总的净买入额
+       ('当天龙虎榜_买','东财龙虎榜买',1,null,current_timestamp()),
+       ('当天龙虎榜_卖-','东财龙虎榜卖',1,null,current_timestamp()),
+       ('最近60天龙虎榜','东财龙虎榜',0,null,current_timestamp()),
+
+       ('adtm买入信号','',0,null,current_timestamp()),
+       ('boll买入信号','',0,null,current_timestamp()),
+       ('bbiboll买入信号','',0,null,current_timestamp()),
+       ('dpo买入信号','',0,null,current_timestamp()),
+       ('cci买入信号','',0,null,current_timestamp()),
+       ('rsi金叉','',0,null,current_timestamp()),
+       ('cr金叉','',0,null,current_timestamp()),
+       ('塔形底','',0,null,current_timestamp()),
+       ('业绩预增','',0,null,current_timestamp()),
+
+       ('adtm卖出信号','',0,null,current_timestamp()),
+       ('boll卖出信号','',0,null,current_timestamp()),
+       ('bbiboll卖出信号','',0,null,current_timestamp()),
+       ('dpo卖出信号','',0,null,current_timestamp()),
+       ('cci卖出信号','',0,null,current_timestamp()),
+       ('超卖','',0,null,current_timestamp()),
+       ('首板涨停','',0,null,current_timestamp()),
+       ('高量柱','',0,null,current_timestamp()),
+       ('消费股','',0,null,current_timestamp()),
+       ('低价股','',0,null,current_timestamp()),
+       ('平台突破','',0,null,current_timestamp()),
+       ('股权集中','',0,null,current_timestamp()),
+       ('机构重仓','',0,null,current_timestamp()),
+       ('持续放量','',0,null,current_timestamp()),
+       ('放巨量','',0,null,current_timestamp()),
+       ('价升量涨','',0,null,current_timestamp()),
+       ('看涨吞没','',0,null,current_timestamp());
+
+drop table if exists dim_stock_strategy;
+create table if not exists dim_stock_strategy
+(
+--     stock_strategy_id    int comment '股票策略id',
+    stock_strategy_name  string comment '股票策略名称 股票标签名称 +拼接',
+--     holding_yield_td     decimal(20, 4) comment '截止当天持股收益率',
+--     holding_yield_before decimal(20, 4) comment '上期持股收益率',
+--     strategy_type        int comment '策略类型：0选股策略;1择时策略',
+    annual_yield         decimal(20, 4) comment '年化收益率',
+    max_retrace          decimal(20, 4) comment '最大回撤',
+    annual_max_retrace   decimal(20, 4) comment '年化收益率/最大回撤',
+    backtest_start_date  date comment '回测数据开始日期',
+    backtest_end_date    date comment '回测数据结束日期',
+    update_time          timestamp comment '更新时间'
+) comment '股票策略'
+    row format delimited fields terminated by '\t'
+    stored as orc tblproperties ('orc.compress' = 'snappy');
+insert into dim_stock_strategy values ('小市值+PEG+EBIT+',null,null,null,null,null,current_timestamp());
+
+
 drop table if exists dim_dc_stock_plate_df;
 create table if not exists dim_dc_stock_plate_df
 (
@@ -15,12 +91,16 @@ create table if not exists dim_dc_stock_plate_df
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-
-
-
-
-
-
+drop table if exists dim_stock_fee_rate;
+create table if not exists dim_stock_fee_rate
+(
+    commission_fee decimal(20, 4) comment '佣金费率',
+    transfer_fee   decimal(20, 4) comment '过户费率',
+    stamp_duty_fee decimal(20, 4) comment '印花税率 只有卖时收'
+) comment '股票手续费率'
+    row format delimited fields terminated by '\t'
+    stored as orc tblproperties ('orc.compress' = 'snappy');
+insert into dim_stock_fee_rate values(0.0005,0.00002,0.001);
 
 
 

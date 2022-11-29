@@ -53,19 +53,19 @@ def multiprocess_run(code_list, start_date, hive_engine, process_num = 2):
             spark_df.repartition(1).write.insertInto('stock.ods_financial_analysis_indicator_di', overwrite=False)
 
     # 多进程的需要合并分区内小文件
-    # hive_sql="""show partitions %s""" % ('stock.ods_financial_analysis_indicator_di')
-    # pd_df = pd.read_sql(hive_sql, hive_engine)
-    # pd_df['partition'] = pd.to_datetime(pd_df['partition'].apply(lambda x: x.split('=')[1]))
-    # pd_df = pd_df[(pd_df.partition >= pd.to_datetime(start_date)) & (pd_df.partition <= pd.to_datetime(end_date))]
-    # for single_date in pd_df.partition:
-    #     hive_engine.execute("""alter table stock.ods_financial_analysis_indicator_di partition (td ='%s') concatenate""" % (single_date.strftime("%Y-%m-%d")))
-    merge_df = spark.sql("""
-    select *
-    from stock.ods_financial_analysis_indicator_di
-        where td between '%s' and '%s'
-            """ % (start_date, end_date))
+    hive_sql="""show partitions %s""" % ('stock.ods_financial_analysis_indicator_di')
+    pd_df = pd.read_sql(hive_sql, hive_engine)
+    pd_df['partition'] = pd.to_datetime(pd_df['partition'].apply(lambda x: x.split('=')[1]))
+    pd_df = pd_df[(pd_df.partition >= pd.to_datetime(start_date)) & (pd_df.partition <= pd.to_datetime(end_date))]
+    for single_date in pd_df.partition:
+        hive_engine.execute("""alter table stock.ods_financial_analysis_indicator_di partition (td ='%s') concatenate""" % (single_date.strftime("%Y-%m-%d")))
+    # merge_df = spark.sql("""
+    # select *
+    # from stock.ods_financial_analysis_indicator_di
+    #     where td between '%s' and '%s'
+    #         """ % (start_date, end_date))
     # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 1 个数据文件。
-    merge_df.repartition(1).write.insertInto('stock.ods_financial_analysis_indicator_di', overwrite=True)
+    # merge_df.repartition(1).write.insertInto('stock.ods_financial_analysis_indicator_di', overwrite=True)
     spark.stop
     print('{}：执行完毕！！！'.format(appName))
 

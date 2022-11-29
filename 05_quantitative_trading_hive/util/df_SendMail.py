@@ -18,8 +18,8 @@ my_sender = '2855227591@qq.com'    # 发件人邮箱账号
 my_pass = 'sogvwwkvkmkqdghi'   # 发件人邮箱密码
 Subject = '量化投资操作'
 sender_show = '蔡广源'
-# recipient_shows = ['蔡广源','秦晋隆']
-# to_addrs = ['2855227591@qq.com','1620157829@qq.com'] # 收件人邮箱账号(这里发自己) list 可放批量
+# recipient_shows = ['蔡广源','梁小杰','秦晋隆']
+# to_addrs = ['2855227591@qq.com','amazy.jie@qq.com','1620157829@qq.com'] # 收件人邮箱账号(这里发自己) list 可放批量
 recipient_shows = ['蔡广源','xx']
 to_addrs = ['2855227591@qq.com','2855227591@qq.com'] # 收件人邮箱账号(这里发自己) list 可放批量
 

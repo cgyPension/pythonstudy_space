@@ -125,8 +125,8 @@ select t1.trade_date,
        if(lag(t1.close_price,19)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 19 preceding and current row)) as ma_20d,
        if(lag(t1.close_price,29)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 29 preceding and current row)) as ma_30d,
        if(lag(t1.close_price,59)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 59 preceding and current row)) as ma_60d,
-       if(lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(t1.open_price-lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date))/t1.open_price) as holding_yield_2d,
-       if(lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(t1.open_price-lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date))/t1.open_price) as holding_yield_5d
+       if(lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date)-t1.open_price)/t1.open_price) as holding_yield_2d,
+       if(lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date)-t1.open_price)/t1.open_price) as holding_yield_5d
 from stock.ods_dc_stock_quotes_di t1
 left join stock.ods_lg_indicator_di t2
         on t1.trade_date = t2.trade_date
@@ -151,7 +151,8 @@ where t1.td between '%s' and '%s'
 
         spark.sql("""
 select *,
-       if(reason_for_lhbs is not null,1,0) as is_lhb,
+       if(interprets rlike '买',1,0) as is_lhb_buy,
+       if(interprets rlike '卖',1,0) as is_lhb_sell,
        if(lhb_num_60d>0,1,0) is_lhb_60d,
        if(percent_rank()over(partition by trade_date order by total_market_value)<0.333,1,0) as is_min_market_value,
        if(lag(volume_ratio_1d,1)over(partition by stock_code order by trade_date) >1 and volume_ratio_1d >1,1,0) as is_rise_volume_2d,
@@ -221,7 +222,8 @@ select t1.trade_date,
        t1.ma_30d,
        t1.ma_60d,
        concat_ws(',',if(t1.is_min_market_value=1,'小市值',null),
-                     if(t1.is_lhb=1,'今天龙虎榜',null),
+                     if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
+                     if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
                      if(t1.is_rise_volume_2d=1,'连续两天放量-',null),
                      if(t1.is_rise_volume_2d_low=1,'连续两天放量且低收-',null),
@@ -233,7 +235,8 @@ select t1.trade_date,
        ) as stock_label_names,
        (
         t1.is_min_market_value+
-        t1.is_lhb+
+        t1.is_lhb_buy+
+        t1.is_lhb_sell+
         t1.is_lhb_60d+
         t1.is_rise_volume_2d+
         t1.is_rise_volume_2d_low+
@@ -244,18 +247,18 @@ select t1.trade_date,
         t1.is_rise_ma_60d
         ) as stock_label_num,
        concat_ws(',',if(t1.is_min_market_value=1,'小市值',null),
-                     if(t1.is_lhb=1,'今天龙虎榜',null),
-                     if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
+                     if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
+                     if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_rise_volume_2d=1,'连续两天放量-',null),
                      if(t1.is_rise_volume_2d_low=1,'连续两天放量且低收-',null)
-       ) as factor_names,
+       ) as sub_factor_names,
        (
         t1.is_min_market_value+
-        t1.is_lhb+
-        t1.is_lhb_60d-
+        t1.is_lhb_buy-
+        t1.is_lhb_sell-
         t1.is_rise_volume_2d-
         t1.is_rise_volume_2d_low
-        ) as factor_score,
+        ) as sub_factor_score,
        t1.holding_yield_2d,
        t1.holding_yield_5d,
        tfp.suspension_time,

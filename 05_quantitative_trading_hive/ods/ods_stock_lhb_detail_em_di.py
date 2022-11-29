@@ -31,6 +31,7 @@ def get_data(start_date, end_date):
     daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(start_date).date()) & (td_df.trade_date<=pd.to_datetime(end_date).date())]
     for single_date in daterange_df.trade_date:
         try:
+            # 返回的数据没有交易日期 只能这样子遍历跑
             df = ak.stock_lhb_detail_em(single_date.strftime("%Y%m%d"), single_date.strftime("%Y%m%d"))
             # print('ods_stock_lhb_detail_em_di：正在处理{}...'.format(single_date))
             if df.empty:
@@ -61,7 +62,7 @@ def get_data(start_date, end_date):
     print('{}：执行完毕！！！'.format(appName))
 
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/ods_stock_lhb_detail_em_di.py all
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_stock_lhb_detail_em_di.py all
 # nohup python ods_stock_lhb_detail_em_di.py update 20220930 >> my.log 2>&1 &
 # python ods_stock_lhb_detail_em_di.py all
 # python ods_stock_lhb_detail_em_di.py update 20221101  20221110

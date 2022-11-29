@@ -21,8 +21,7 @@ pd.set_option('display.unicode.east_asian_width', True)
 from util.DBUtils import sqlalchemyUtil, hiveUtil
 from util.CommonUtils import get_process_num, get_code_group, get_code_list, get_spark
 
-
-def multiprocess_run(code_list, start_date, hive_engine, process_num):
+def multiprocess_run(code_list, start_date,end_date,hive_engine, process_num):
     appName = os.path.basename(__file__)
     # 本地模式
     spark = get_spark(appName)
@@ -107,6 +106,7 @@ def get_data(ak_code, ak_name,start_date):
 
 # nohup python ods_lg_indicator_di.py update 20221010 >> my.log 2>&1 &
 # python /opt/code/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py all
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py update 20221122 20221123
 if __name__ == '__main__':
     code_list = get_code_list()
     start_date = date.today().strftime('%Y%m%d')
@@ -117,16 +117,19 @@ if __name__ == '__main__':
         run_type = sys.argv[1]
         if run_type == 'all':
             start_date = '20210101'
+            end_date = date.today().strftime('%Y%m%d')
         else:
             start_date = date.today().strftime('%Y%m%d')
+            end_date = start_date
     elif len(sys.argv) == 4:
         run_type = sys.argv[1]
         start_date = sys.argv[2]
+        end_date = sys.argv[3]
 
     hive_engine = hiveUtil().engine
     process_num = get_process_num()
 
     start_time = time.time()
-    multiprocess_run(code_list, start_date, hive_engine, process_num)
+    multiprocess_run(code_list, start_date,end_date, hive_engine, process_num)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

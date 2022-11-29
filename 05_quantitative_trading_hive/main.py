@@ -20,12 +20,8 @@ from util.DBUtils import sqlalchemyUtil, hiveUtil
 
 
 def task_update_daily():
-    """
-    :return: None
-    """
-    code_list = get_code_list()
-    period = 'daily'
-
+    start_date = date.today().strftime('%Y%m%d')
+    end_date = start_date
     if len(sys.argv) == 1:
         print("请携带一个参数 all update 更新要输入开启日期 结束日期 不输入则默认当天")
     elif len(sys.argv) == 2:
@@ -41,6 +37,8 @@ def task_update_daily():
         start_date = sys.argv[2]
         end_date = sys.argv[3]
 
+    code_list = get_code_list()
+    period = 'daily'
     adjust = "hfq"
     hive_engine = hiveUtil().engine
     process_num = get_process_num()
@@ -50,10 +48,10 @@ def task_update_daily():
     start_time = time.time()
 
     ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
-    # 财务
-    ods_lg_indicator_di.multiprocess_run(code_list, start_date, hive_engine, process_num)
+    # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑
+    ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, process_num)
     ods_stock_lrb_em_di.get_data(start_date, end_date)
-    # 这个全量很慢 平时不能全量跑
+    # 这个年报全量很慢 平时不能全量跑  20200331", "20200630", "20200930", "20201231" 报告日期才跑
     # ods_financial_analysis_indicator_di.multiprocess_run(code_list, start_date, hive_engine)
 
     # 其他

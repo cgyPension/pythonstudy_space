@@ -65,7 +65,7 @@ tmp_ads_02 as (
                       dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm) as stock_strategy_ranking
                from tmp_ads_01
                where suspension_time is null
-                       or estimated_resumption_time <= '%s'
+                       or estimated_resumption_time < date_add('%s',1)
                        or pe_ttm is null
                        or pe_ttm <=30
                order by stock_strategy_ranking
@@ -125,8 +125,8 @@ select trade_date,
        ma_60d,
        stock_label_names,
        stock_label_num,
-       factor_names,
-       factor_score,
+       sub_factor_names,
+       sub_factor_score,
        stock_strategy_name,
        stock_strategy_ranking,
        holding_yield_2d,
