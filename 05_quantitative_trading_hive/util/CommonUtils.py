@@ -11,9 +11,9 @@ from pyspark.sql import SparkSession
 
 warnings.filterwarnings("ignore")
 # 输出显示设置
-pd.set_option('max_rows',None)
-pd.set_option('max_columns',None)
-pd.set_option('expand_frame_repr',False)
+pd.options.display.max_rows=None
+pd.options.display.max_columns=None
+pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide',True)
 pd.set_option('display.unicode.east_asian_width',True)
 
@@ -83,7 +83,7 @@ def get_code_list():
     # 利用东财实时行情数据接口获取沪深京A股
     df = ak.stock_zh_a_spot_em()
     # 排除 京股
-    # df = df[~df['代码'].str.startswith(('8', '4'))]
+    df = df[~df['代码'].str.startswith(('8', '4'))]
     # 筛选股票数据，上证和深证股票
     code_list = df[['代码', '名称']].values
     return code_list

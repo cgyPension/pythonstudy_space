@@ -3,7 +3,9 @@ import pandas as pd
 
 def test_stack():
     # 列旋转函数
-    # unstack()函数是根据列名进行分类，而stack函数是根据index标签进行了分类
+    # stack函数是根据index标签进行了分类，把列转换为行。
+    # unstack:把行转换为列。
+    # pivot(index='trade_date', columns='stock_code',values='close_price') 根据列名转换
     f = {'id': pd.Series(['Amy', 'Bob', 'Cathy', 'David', 'Harry'], index=[1, 2, 3, 4, 5]),
          'age': pd.Series([22, 21, 24, 26], index=[1, 2, 3, 4]),
          }
@@ -115,11 +117,57 @@ def test_cumprod():
                        "D": [5, 4, 2, None]})
     df2.cumprod(axis=0, skipna=True)
 
-def test_xxx():
-    pass
+def test_fillna():
+    '''
+    填充缺失数据
+    inplace参数的取值：True、False
+    True：直接修改原对象
+    False：创建一个副本，修改副本，原对象不变（缺省默认）
+    method参数的取值 ： {‘pad’, ‘ffill’,‘backfill’, ‘bfill’, None}, default None
+    pad/ffill：用前一个非缺失值去填充该缺失值
+    backfill/bfill：用下一个非缺失值填充该缺失值
+    None：指定一个值去替换缺失值（缺省默认这种方式）
+    limit参数：限制填充个数
+    axis参数：修改填充方向
+    :return:
+    '''
+    df = pd.DataFrame([[1, 2, 3], [None, None, 2], [None, None, None], [8, 8, None]])
+    print(df)
+    print(df.fillna(100))
+    #用字典填充
+    print(df.fillna({0: 10, 1: 20, 2: 30}))
 
-def test_xxx():
-    pass
+    df2 = pd.DataFrame(np.random.randint(0, 10, (5, 5)))
+    df2.iloc[1:4, 3] = None
+    df2.iloc[2:4, 4] = None
+    print(df2)
+    print(df2.fillna(method='ffill'))
+    print(df2.fillna(method='bfill'))
+    print(df2.fillna(method='bfill', limit=2))
+    print(df2.fillna(method="ffill", limit=1, axis=1))
+
+def test_rank():
+    '''rank函数中的参数method有四个取值：无参,"min","max","first
+    "'''
+
+    ser=pd.Series([3,2,0,3],index=list('abcd'))
+    print(ser)
+    # 无参相同排名下，取平均值进行排名
+    ser = ser.rank()  # 默认为average
+    print(ser)
+
+    # 因为a与d的值相同，排名分别为3和4，取较小的排名作为它们的排名，所以a和b的排名为3。
+    ser = ser.rank(method='min')
+    print(ser)
+
+    # 因为a与d的值相同，排名分别为3和4，取较大的排名作为它们的排名，所以a和b的排名为4。
+    ser = ser.rank(method='max')
+    print(ser)
+
+    # 相同的值按照出现顺序排列，先出现的值排名靠前（The first value is ranked first），不允许并列排名
+    ser = ser.rank(method='first')
+    print(ser)
+
 
 def test_xxx():
     pass
@@ -143,7 +191,7 @@ def test_xxx():
     pass
 
 if __name__ == '__main__':
-    test_shift()
+    test_stack()
 
 
 

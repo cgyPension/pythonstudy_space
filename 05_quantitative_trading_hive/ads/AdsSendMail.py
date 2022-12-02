@@ -37,8 +37,8 @@ def get_data():
                        sub_factor_names as `主观因子标签名称 ,拼接`,
                        stock_strategy_name as `股票策略名称 股票标签名称 +拼接`,
                        stock_strategy_ranking as `策略内排行`
-                from ads_stock_suggest_di
-                where trade_date = %s;
+                from stock.ads_stock_suggest_di
+                where td = '%s';
         """% (start_date)
 
         spark_df = spark.sql(sql)

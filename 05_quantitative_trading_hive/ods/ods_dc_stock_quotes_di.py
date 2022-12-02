@@ -15,9 +15,9 @@ from util.DBUtils import hiveUtil
 from util.CommonUtils import get_process_num, get_code_group, get_code_list, get_spark
 warnings.filterwarnings("ignore")
 # 输出显示设置
-pd.set_option('max_rows', None)
-pd.set_option('max_columns', None)
-pd.set_option('expand_frame_repr', False)
+pd.options.display.max_rows=None
+pd.options.display.max_columns=None
+pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
@@ -99,6 +99,7 @@ def get_data(ak_code, ak_name, period, start_date, end_date, adjust):
     # time.sleep(1)
     for i in range(1):
         try:
+            # 前后复权 有些无论是价格 还是涨跌幅 价差别很大
             df = ak.stock_zh_a_hist(symbol=ak_code, period=period, start_date=start_date, end_date=end_date,
                                     adjust=adjust)
             if df.empty:
@@ -158,7 +159,7 @@ if __name__ == '__main__':
         start_date = sys.argv[2]
         end_date = sys.argv[3]
 
-    adjust = "hfq"
+    adjust = "qfq"
     process_num = get_process_num()
     hive_engine = hiveUtil().engine
     start_time = time.time()

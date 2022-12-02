@@ -11,9 +11,9 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 warnings.filterwarnings("ignore")
 # 输出显示设置
-pd.set_option('max_rows', None)
-pd.set_option('max_columns', None)
-pd.set_option('expand_frame_repr', False)
+pd.options.display.max_rows=None
+pd.options.display.max_columns=None
+pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 from util.CommonUtils import get_process_num, get_spark
@@ -42,10 +42,10 @@ def get_data(start_date, end_date):
         s_date = '20210101'
         end_date = pd.to_datetime(end_date).date()
 
+        # 增量 因为ma_60d 要提前60个交易日
         td_df = ak.tool_trade_date_hist_sina()
         daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
-        daterange_df = daterange_df.iloc[-5:, 0].reset_index(drop=True)
-        # 增量 要前5个交易日 但是要预够假期 不够取最靠近前5的交易日
+        daterange_df = daterange_df.iloc[-60:, 0].reset_index(drop=True)
         if daterange_df.empty:
             start_date = pd.to_datetime(start_date).date()
         else:
@@ -155,6 +155,8 @@ select *,
        if(interprets rlike '卖',1,0) as is_lhb_sell,
        if(lhb_num_60d>0,1,0) is_lhb_60d,
        if(percent_rank()over(partition by trade_date order by total_market_value)<0.333,1,0) as is_min_market_value,
+       if(percent_rank()over(partition by trade_date order by total_market_value) >=0.333 and percent_rank()over(partition by trade_date order by total_market_value) <0.666,1,0) as is_mid_market_value,
+       if(percent_rank()over(partition by trade_date order by total_market_value) >=0.666,1,0) as is_max_market_value,
        if(lag(volume_ratio_1d,1)over(partition by stock_code order by trade_date) >1 and volume_ratio_1d >1,1,0) as is_rise_volume_2d,
        if(lag(volume_ratio_1d,1)over(partition by stock_code order by trade_date) >1 and volume_ratio_1d >1
            and lag(close_price,1)over(partition by stock_code order by trade_date) < lag(open_price,1)over(partition by stock_code order by trade_date)
@@ -222,6 +224,8 @@ select t1.trade_date,
        t1.ma_30d,
        t1.ma_60d,
        concat_ws(',',if(t1.is_min_market_value=1,'小市值',null),
+                     if(t1.is_mid_market_value=1,'中市值',null),
+                     if(t1.is_max_market_value=1,'大市值',null),
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
@@ -235,6 +239,8 @@ select t1.trade_date,
        ) as stock_label_names,
        (
         t1.is_min_market_value+
+        t1.is_mid_market_value+
+        t1.is_max_market_value+
         t1.is_lhb_buy+
         t1.is_lhb_sell+
         t1.is_lhb_60d+
@@ -256,8 +262,8 @@ select t1.trade_date,
         t1.is_min_market_value+
         t1.is_lhb_buy-
         t1.is_lhb_sell-
-        t1.is_rise_volume_2d-
-        t1.is_rise_volume_2d_low
+        -- 存在包含与被包含关系
+        if(t1.is_rise_volume_2d = 1 or t1.is_rise_volume_2d_low = 1 ,1,0)
         ) as sub_factor_score,
        t1.holding_yield_2d,
        t1.holding_yield_5d,
@@ -283,9 +289,9 @@ left join stock.ods_dc_stock_tfp_di tfp
     print('{}：执行完毕！！！'.format(appName))
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dwd/dwd_stock_quotes_di.py all
-# nohup dwd_stock_quotes_di.py update 20221101 >> my.log 2>&1 &
-# python dwd_stock_quotes_di.py all
-# python dwd_stock_quotes_di.py update 20210101 20211231
+# nohup tmp_ods.py update 20221101 >> my.log 2>&1 &
+# python tmp_ods.py all
+# python tmp_ods.py update 20210101 20211231
 if __name__ == '__main__':
     # between and 两边都包含
     process_num = get_process_num()

@@ -10,14 +10,14 @@ import akshare as ak
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+import plotly.express as px
 
 
 warnings.filterwarnings("ignore")
 # 输出显示设置
-pd.set_option('max_rows', None)
-pd.set_option('max_columns', None)
-pd.set_option('expand_frame_repr', False)
+pd.options.display.max_rows=None
+pd.options.display.max_columns=None
+pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 #matplotlib中文显示设置
@@ -35,6 +35,9 @@ if __name__ == '__main__':
     # df = ak.stock_a_lg_indicator(symbol='000609')
     # print(df)
 
-    c = np.random.randn(100)
-    output = ta.SMA(c)
-    print(output)
+    # df = ak.stock_tfp_em(date='20221130')
+    # print(df)
+    # t1 = pd.Timestamp('2019-01-10')
+    # print(type(t1),t1)
+
+    print(pd.to_datetime('20221101').date().strftime('%Y%m%d'))

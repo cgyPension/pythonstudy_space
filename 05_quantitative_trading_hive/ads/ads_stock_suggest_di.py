@@ -14,9 +14,9 @@ rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 warnings.filterwarnings("ignore")
 # 输出显示设置
-pd.set_option('max_rows', None)
-pd.set_option('max_columns', None)
-pd.set_option('expand_frame_repr', False)
+pd.options.display.max_rows=None
+pd.options.display.max_columns=None
+pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 from util.CommonUtils import get_process_num, get_spark
@@ -34,10 +34,10 @@ def get_data(start_date, end_date):
    s_date = '20210101'
    end_date = pd.to_datetime(end_date).date()
 
+   # 增量 因为持股5日收益 要提前5个交易日
    td_df = ak.tool_trade_date_hist_sina()
    daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
    daterange_df = daterange_df.iloc[-5:, 0].reset_index(drop=True)
-   # 增量 要前5个交易日 但是要预够假期 不够取最靠近前5的交易日
    if daterange_df.empty:
        start_date = pd.to_datetime(start_date).date()
    else:
@@ -52,9 +52,6 @@ select *,
        dense_rank()over(partition by td order by pe_ttm) as dr_pe_ttm
 from stock.dwd_stock_quotes_di
 where td between '%s' and '%s'
-        -- 剔除京股
-        and substr(stock_code,1,2) != 'bj'
-        -- 剔除涨停 涨幅<5
         and change_percent <5
         and turnover_rate between 1 and 30
         and stock_label_names rlike '小市值'
@@ -146,7 +143,7 @@ where stock_strategy_ranking <=10
    print('{}：执行完毕！！！'.format(appName))
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py all
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update 20221110 20221130
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update 20221110
 # nohup ads_stock_suggest_di.py update 20221010 20221010 >> my.log 2>&1 &
 # python ads_stock_suggest_di.py update 20221110 20221110

@@ -14,9 +14,9 @@ from util.CommonUtils import get_spark
 # import warnings
 # warnings.filterwarnings("ignore")
 # 输出显示设置
-pd.set_option('max_rows', None)
-pd.set_option('max_columns', None)
-pd.set_option('expand_frame_repr', False)
+pd.options.display.max_rows=None
+pd.options.display.max_columns=None
+pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 # matplotlib中文显示设置

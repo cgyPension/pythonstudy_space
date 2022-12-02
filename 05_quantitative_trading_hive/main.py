@@ -39,15 +39,18 @@ def task_update_daily():
 
     code_list = get_code_list()
     period = 'daily'
-    adjust = "hfq"
+    # adjust = "hfq"
+    adjust = "qfq"
     hive_engine = hiveUtil().engine
     process_num = get_process_num()
 
 
     # 程序开始运行时间
     start_time = time.time()
-
-    ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
+    # 前复权 一般季度时间后一周内会修改旧数据 这时候要全量重跑这个ods
+    # 如果进行价值投资，建议采用后复权 适合回测
+    # 如果进行技术分析，最好用前复权 适合指导实盘 会引入了未来函数？
+    # ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
     # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑
     ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, process_num)
     ods_stock_lrb_em_di.get_data(start_date, end_date)
@@ -56,6 +59,7 @@ def task_update_daily():
 
     # 其他
     ods_stock_lhb_detail_em_di.get_data(start_date, end_date)
+    # 停复牌8点左右跑 不然有些数据会后补
     ods_dc_stock_tfp_di.get_data(start_date, end_date)
 
     # 板块
@@ -65,9 +69,10 @@ def task_update_daily():
     ods_dc_stock_concept_plate_df.multiprocess_run(process_num)
     dim_dc_stock_plate_df.get_data()
 
-    dwd_stock_quotes_di.get_data(start_date, end_date)
-    ads_stock_suggest_di.get_data(start_date, end_date)
+    # dwd_stock_quotes_di.get_data(start_date, end_date)
+    # ads_stock_suggest_di.get_data(start_date, end_date)
     # AdsSendMail.get_data()
+    # AdstoCSV.get_data(start_date)
 
 
     # 程序结束运行时间

@@ -4,7 +4,7 @@ import dash
 import dash_html_components as html
 from dash import dcc
 import plotly.express as px
-import dash_core_components as dcc
+# import dash_core_components as dcc
 from dash.dependencies import Input, Output
 
 # 在linux会识别不了包 所以要加临时搜索目录
@@ -131,4 +131,5 @@ def listen_to_hover(hoverData, clickData, selectedData, relayoutData):
 
 if __name__ == '__main__':
     # host设置为0000 为了主机能访问 虚拟机的web服务
+    # http://hadoop102:8000/
     app.run(host='0.0.0.0',port='8000',debug=True)
