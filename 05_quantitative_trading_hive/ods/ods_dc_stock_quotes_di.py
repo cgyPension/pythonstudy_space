@@ -40,34 +40,43 @@ def multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine
         # 等待所有进程结束
         pool.join()
 
-    # 这里多进程写入 不可以直接用overwrite
-    hive_engine.execute("""alter table stock.ods_dc_stock_quotes_di drop if exists partition (td >= '%s',td <='%s')""" % (pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date()))
-    for r in result_list:
-        rl = r.get()
-        if rl.empty:
-            print('rl为空')
-        else:
-            spark_df = spark.createDataFrame(rl)
-            spark_df.repartition(1).write.insertInto('stock.ods_dc_stock_quotes_di', overwrite=False)
+    # 全量
+    if start_date == '20210101':
+        spark.sql('''truncate table tmp_ods_dc_stock_quotes_di''')
 
-    # 多进程的需要合并分区内小文件
-    # 全量的话用hive合并分区很慢
-    hive_sql="""show partitions %s""" % ('stock.ods_dc_stock_quotes_di')
-    pd_df = pd.read_sql(hive_sql, hive_engine)
-    pd_df['partition'] = pd.to_datetime(pd_df['partition'].apply(lambda x: x.split('=')[1]))
-    pd_df = pd_df[(pd_df.partition >= pd.to_datetime(start_date)) & (pd_df.partition <= pd.to_datetime(end_date))]
-    for single_date in pd_df.partition:
-        hive_engine.execute("""alter table stock.ods_dc_stock_quotes_di partition (td ='%s') concatenate""" % (single_date.strftime("%Y-%m-%d")))
-    # spark.sql("""
-    # select *
-    # from stock.ods_dc_stock_quotes_di
-    #     where td between '%s' and '%s'
-    #         """ % (start_date, end_date)).createOrReplaceTempView('tmp_merge_ods_dc_stock_quotes_di')
-    #
-    # merge_df = spark.sql("""select * from tmp_merge_ods_dc_stock_quotes_di""")
-    # 不知道为什么覆盖分区失效 再删一次
-    # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 1 个数据文件。
-    # merge_df.repartition(1).write.insertInto('stock.ods_dc_stock_quotes_di', overwrite=True)
+        for r in result_list:
+            rl = r.get()
+            if rl.empty:
+                print('rl为空')
+            else:
+                spark_df = spark.createDataFrame(rl)
+                spark_df.repartition(1).write.insertInto('stock.tmp_ods_dc_stock_quotes_di', overwrite=False)
+
+        merge_df = spark.sql("""select * from stock.tmp_ods_dc_stock_quotes_di""")
+        # 不知道为什么覆盖分区失效 再删一次
+        # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 1 个数据文件。
+        merge_df.repartition(1).write.insertInto('stock.ods_dc_stock_quotes_di', overwrite=True)
+
+    else:
+        # 这里多进程写入 不可以直接用overwrite
+        hive_engine.execute("""alter table stock.ods_dc_stock_quotes_di drop if exists partition (td >= '%s',td <='%s')""" % (pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date()))
+        for r in result_list:
+            rl = r.get()
+            if rl.empty:
+                print('rl为空')
+            else:
+                spark_df = spark.createDataFrame(rl)
+                spark_df.repartition(1).write.insertInto('stock.ods_dc_stock_quotes_di', overwrite=False)
+
+        # 多进程的需要合并分区内小文件
+        # 全量的话用hive合并分区很慢
+        hive_sql="""show partitions %s""" % ('stock.ods_dc_stock_quotes_di')
+        pd_df = pd.read_sql(hive_sql, hive_engine)
+        pd_df['partition'] = pd.to_datetime(pd_df['partition'].apply(lambda x: x.split('=')[1]))
+        pd_df = pd_df[(pd_df.partition >= pd.to_datetime(start_date)) & (pd_df.partition <= pd.to_datetime(end_date))]
+        for single_date in pd_df.partition:
+            hive_engine.execute("""alter table stock.ods_dc_stock_quotes_di partition (td ='%s') concatenate""" % (single_date.strftime("%Y-%m-%d")))
+
     spark.stop
     print('{}：执行完毕！！！'.format(appName))
 

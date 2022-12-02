@@ -49,9 +49,10 @@ with tmp_ads_01 as (
 select *,
        dense_rank()over(partition by td order by total_market_value) as dr_tmv,
        dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
-       dense_rank()over(partition by td order by pe_ttm) as dr_pe_ttm
+       dense_rank()over(partition by td order by pe_ttm,pe) as dr_pe_ttm
 from stock.dwd_stock_quotes_di
 where td between '%s' and '%s'
+        and stock_name not rlike 'ST'
         and change_percent <5
         and turnover_rate between 1 and 30
         and stock_label_names rlike '小市值'
@@ -59,7 +60,8 @@ where td between '%s' and '%s'
 tmp_ads_02 as (
                select *,
                       '小市值+换手率+市盈率TTM' as stock_strategy_name,
-                      dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm) as stock_strategy_ranking
+                      -- 加上量比排序 避免排名重复
+                      dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
                from tmp_ads_01
                where suspension_time is null
                        or estimated_resumption_time < date_add('%s',1)
