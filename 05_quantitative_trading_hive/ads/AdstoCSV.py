@@ -11,7 +11,7 @@ from datetime import date
 import pandas as pd
 from util.CommonUtils import get_spark
 
-def get_data(start_date):
+def get_data(start_date,stock_strategy_name='all量化投资操作'):
     try:
         appName = os.path.basename(__file__)
         # 本地模式
@@ -22,34 +22,43 @@ def get_data(start_date):
         df = df[df['trade_date'] > start_date].reset_index(drop=True)
         next_date = df.iat[0,0] # 下一个交易日
 
-        sql = """
-                select substr(stock_code,3)
-                from stock.ads_stock_suggest_di
-                where td = '%s';
-        """% (start_date)
+        if stock_strategy_name=='all量化投资操作':
+            spark_df = spark.sql(
+                """
+                    select substr(stock_code,3)
+                    from stock.ads_stock_suggest_di
+                    where td = '%s'
+                    order by stock_strategy_ranking;
+                """% (start_date))
+        else:
+            spark_df = spark.sql(
+                """
+                    select substr(stock_code,3)
+                    from stock.ads_stock_suggest_di
+                    where td = '%s'
+                        and stock_strategy_name = '%s';
+                """% (start_date,stock_strategy_name))
 
-        spark_df = spark.sql(sql)
         pd_df = spark_df.toPandas()
 
         # 写入文件
-        print('{}小市值策略'.format(next_date.strftime('%m%d')))
-        print('{}小市值策略'.format(next_date.strftime('%Y%m%d')))
+        print(next_date.strftime('%m%d') + stock_strategy_name)
+        print(next_date.strftime('%Y%m%d') + stock_strategy_name)
         # 定时上传到ptrade的文件路径
         # path = 'C:/Users/Administrator/Desktop/trade_data.csv'
         # .sel 同花顺要求的格式
-        path = '/opt/code/pythonstudy_space/量化投资操作.sel'
+        path = '/opt/code/pythonstudy_space/{}.sel'.format(stock_strategy_name)
         pd_df.to_csv(path, index=False, header=0,mode='w', encoding='utf-8')
     except Exception as e:
         print(e)
     print('{}：执行完毕！！！'.format(appName))
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/AdsSendMail.py
+# spark-submit /opt/code/05_quantitative_trading_hive/ads/AdsSendMail.py
 # nohup AdsSendMail.py >> my.log 2>&1 &
 # python AdsSendMail.py
 if __name__ == '__main__':
     start_time = time.time()
-    # current_dt = date.today()
-    start_date = '20221201'
-    get_data(start_date)
+    start_date = date.today()
+    get_data(start_date,'小市值+换手率+市盈率TTM')
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

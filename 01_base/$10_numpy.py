@@ -17,11 +17,29 @@ def test_corrcoef():
     print("矩阵2=\n", Mat2)
     print("相关系数矩阵=\n", correlation)
 
-def test_xxx():
-    pass
+def test_log():
+    '''
+    如果a的x次方等于N（a>0，且a≠1），那么数x叫做以a为底N的对数（logarithm），记作x=loga N。其中，a叫做对数的底数，N叫做真数。 [1]
+    numpy.log()是一个数学函数, 用于计算x(x属于所有输入数组元素)的自然对数。它是指数函数的倒数, 也是元素自然对数。
+    自然对数对数是指数函数的逆函数, 因此log(exp(x))= x。以e为底的对数是自然对数。
+    '''
+    print(np.log2(8))
+    # 不写底数时默认以e为底
+    print(np.log([1, np.e, np.e**2, 0]))
+    print(np.log([1,2,3,4,7.8,7,8]))
+    print(np.log2([1,2,3,8]))
+    print(np.log10([1,2,3,8]))
 
-def test_xxx():
-    pass
+def test_column_stack():
+    '''列合并为矩阵：np.column_stack()'''
+    a = np.array((1, 2, 3))
+    b = np.array((2, 3, 4))
+    ab = np.column_stack((a, b))
+    # 行合并为矩阵 np.row_stack
+    c = np.row_stack((a, b))
+    print(ab,type(ab))
+    print(c,type(c))
+
 
 def test_xxx():
     pass
@@ -39,4 +57,5 @@ def test_xxx():
     pass
 
 if __name__ == '__main__':
-    test_corrcoef()
+    test_column_stack()
+

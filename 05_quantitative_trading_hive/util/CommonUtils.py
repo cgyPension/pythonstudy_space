@@ -33,6 +33,10 @@ def get_spark(appName):
         .config('hive.metastore.uris', 'thrift://hadoop102:9083') \
         .config('spark.debug.maxToStringFields', '200') \
         .config('spark.sql.debug.maxToStringFields', '200') \
+        .config('spark.rpc.message.maxSize', '1024') \
+        .config('spark.driver.maxResultSize', '3g') \
+        .config('spark.executor.memory' ,"3g") \
+        .config('spark.default.parallelism', 300) \
         .config('spark.sql.sources.partitionOverwriteMode', 'dynamic') \
         .config('hive.exec.dynamic.partition', 'true') \
         .config('hive.exec.dynamic.partition.mode', 'nonstrict') \

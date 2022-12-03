@@ -4,17 +4,17 @@ import sys
 import time
 from datetime import date
 # 在linux会识别不了包 所以要加临时搜索目录
-from ads import ads_stock_suggest_di, AdsSendMail
+from ads import ads_stock_suggest_di, AdsSendMail, AdstoCSV
 
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 
-from dim import dim_dc_stock_plate_df
+from dim import dim_dc_stock_plate_di
 from dwd import dwd_stock_quotes_di
 from ods import ods_dc_stock_quotes_di, ods_dc_stock_tfp_di, ods_lg_indicator_di, \
-    ods_dc_stock_concept_plate_name_di, ods_dc_stock_industry_plate_name_di, ods_dc_stock_industry_plate_df, \
-    ods_dc_stock_concept_plate_df, ods_stock_lrb_em_di, ods_financial_analysis_indicator_di, ods_stock_lhb_detail_em_di
+    ods_dc_stock_concept_plate_name_di, ods_dc_stock_industry_plate_name_di, ods_dc_stock_industry_plate_di, \
+    ods_dc_stock_concept_plate_di, ods_stock_lrb_em_di, ods_financial_analysis_indicator_di, ods_stock_lhb_detail_em_di
 from util.CommonUtils import get_code_list, get_process_num
 from util.DBUtils import sqlalchemyUtil, hiveUtil
 
@@ -44,14 +44,14 @@ def task_update_daily():
     hive_engine = hiveUtil().engine
     process_num = get_process_num()
 
-
+    # 有单独用hive的 不能用spark-submit提交
     # 程序开始运行时间
     start_time = time.time()
     # 前复权 一般季度时间后一周内会修改旧数据 这时候要全量重跑这个ods
     # 如果进行价值投资，建议采用后复权 适合回测
     # 如果进行技术分析，最好用前复权 适合指导实盘 会引入了未来函数？
-    # ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
-    # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑
+    ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
+    # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑 有时候会漏数据 总市值不能为空
     ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, process_num)
     ods_stock_lrb_em_di.get_data(start_date, end_date)
     # 这个年报全量很慢 平时不能全量跑  20200331", "20200630", "20200930", "20201231" 报告日期才跑
@@ -63,17 +63,16 @@ def task_update_daily():
     ods_dc_stock_tfp_di.get_data(start_date, end_date)
 
     # 板块
-    ods_dc_stock_industry_plate_name_di.get_data()
-    ods_dc_stock_concept_plate_name_di.get_data()
-    ods_dc_stock_industry_plate_df.multiprocess_run(process_num)
-    ods_dc_stock_concept_plate_df.multiprocess_run(process_num)
-    dim_dc_stock_plate_df.get_data()
+    ods_dc_stock_industry_plate_name_di.get_data(start_date)
+    ods_dc_stock_concept_plate_name_di.get_data(start_date)
+    ods_dc_stock_industry_plate_di.multiprocess_run(start_date,process_num)
+    ods_dc_stock_concept_plate_di.multiprocess_run(start_date,process_num)
+    dim_dc_stock_plate_di.get_data(start_date, end_date)
 
-    # dwd_stock_quotes_di.get_data(start_date, end_date)
-    # ads_stock_suggest_di.get_data(start_date, end_date)
+    dwd_stock_quotes_di.get_data(start_date, end_date)
+    ads_stock_suggest_di.get_data(start_date, end_date)
+    AdstoCSV.get_data(start_date,'小市值+换手率+市盈率TTM')
     # AdsSendMail.get_data()
-    # AdstoCSV.get_data(start_date)
-
 
     # 程序结束运行时间
     end_time = time.time()

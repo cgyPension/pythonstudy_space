@@ -24,26 +24,30 @@ create table if not exists ods_dc_stock_concept_plate_name_di
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-drop table if exists ods_dc_stock_concept_plate_df;
-create table if not exists ods_dc_stock_concept_plate_df
+drop table if exists ods_dc_stock_concept_plate_di;
+create table if not exists ods_dc_stock_concept_plate_di
 (
+    trade_date    date comment '交易日期',
     stock_code    string comment '股票代码',
     stock_name    string comment '股票名称',
     concept_plate string comment '概念板块',
     update_time   timestamp comment '更新时间'
 ) comment ' 东方财富-沪深板块-概念板块-板块成份股'
+    partitioned by (td date comment '分区_交易日期')
     row format delimited fields terminated by '\t'
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-drop table if exists ods_dc_stock_industry_plate_df;
-create table if not exists ods_dc_stock_industry_plate_df
+drop table if exists ods_dc_stock_industry_plate_di;
+create table if not exists ods_dc_stock_industry_plate_di
 (
+    trade_date    date comment '交易日期',
     stock_code     string comment '股票代码',
     stock_name     string comment '股票名称',
     industry_plate string comment '行业板块',
     update_time    timestamp comment '更新时间'
 ) comment '东方财富-沪深板块-行业板块-板块成份股'
+    partitioned by (td date comment '分区_交易日期')
     row format delimited fields terminated by '\t'
     stored as orc
     tblproperties ('orc.compress' = 'snappy');

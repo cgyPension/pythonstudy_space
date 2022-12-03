@@ -29,6 +29,8 @@ insert into dim_stock_label VALUES
        ('当天龙虎榜_买','东财龙虎榜买',1,null,current_timestamp()),
        ('当天龙虎榜_卖-','东财龙虎榜卖',1,null,current_timestamp()),
        ('最近60天龙虎榜','东财龙虎榜',0,null,current_timestamp()),
+       ('预盈预增','概率板标签',1,null,current_timestamp()),
+       ('预亏预减-','概率板标签',1,null,current_timestamp()),
 
        ('adtm买入信号','',0,null,current_timestamp()),
        ('boll买入信号','',0,null,current_timestamp()),
@@ -78,15 +80,17 @@ create table if not exists dim_stock_strategy
 insert into dim_stock_strategy values ('小市值+PEG+EBIT+',null,null,null,null,null,current_timestamp());
 
 
-drop table if exists dim_dc_stock_plate_df;
-create table if not exists dim_dc_stock_plate_df
+drop table if exists dim_dc_stock_plate_di;
+create table if not exists dim_dc_stock_plate_di
 (
+    trade_date    date comment '交易日期',
     stock_code     string comment '股票代码',
     stock_name     string comment '股票名称',
     industry_plate string comment '行业板块',
     concept_plates string comment '概念板块 ,拼接',
     update_time    timestamp comment '更新时间'
 ) comment ' 东方财富-板块维表'
+    partitioned by (td date comment '分区_交易日期')
     row format delimited fields terminated by '\t'
     stored as orc
     tblproperties ('orc.compress' = 'snappy');

@@ -45,7 +45,7 @@ def get_data(start_date, end_date):
         # 增量 因为ma_60d 要提前60个交易日
         td_df = ak.tool_trade_date_hist_sina()
         daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
-        daterange_df = daterange_df.iloc[-60:, 0].reset_index(drop=True)
+        daterange_df = daterange_df.iloc[-61:, 0].reset_index(drop=True)
         if daterange_df.empty:
             start_date = pd.to_datetime(start_date).date()
         else:
@@ -125,13 +125,14 @@ select t1.trade_date,
        if(lag(t1.close_price,19)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 19 preceding and current row)) as ma_20d,
        if(lag(t1.close_price,29)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 29 preceding and current row)) as ma_30d,
        if(lag(t1.close_price,59)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 59 preceding and current row)) as ma_60d,
-       if(lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,1)over(partition by t1.stock_code order by t1.trade_date)-t1.open_price)/t1.open_price) as holding_yield_2d,
-       if(lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date)-t1.open_price)/t1.open_price) as holding_yield_5d
+       -- 这里是下一交易日开盘买入 持股两天 在第二天的收盘卖出
+       if(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date)-lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))*100 as holding_yield_2d,
+       if(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date)-lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))*100 as holding_yield_5d
 from stock.ods_dc_stock_quotes_di t1
 left join stock.ods_lg_indicator_di t2
         on t1.trade_date = t2.trade_date
             and t1.stock_code = t2.stock_code
-            and t1.td between '%s' and '%s'
+            and t2.td between '%s' and '%s'
 -- 区间关联左闭右开
 left join t3
         on t1.trade_date >= t3.announcement_date and t1.trade_date <t3.end_date
@@ -144,10 +145,12 @@ left join  t4
 left join t5
        on t1.trade_date = t5.trade_date
             and t1.stock_code = t5.stock_code
-left join stock.dim_dc_stock_plate_df plate
-        on t1.stock_code = plate.stock_code
+left join stock.dim_dc_stock_plate_di plate
+        on t1.trade_date = plate.trade_date
+        and t1.stock_code = plate.stock_code
+        and plate.td between '%s' and '%s'
 where t1.td between '%s' and '%s'
-        """% (start_date,end_date,start_date,end_date,start_date,end_date)).createOrReplaceTempView('tmp_dwd_01')
+        """% (start_date,end_date,start_date,end_date,start_date,end_date,start_date,end_date)).createOrReplaceTempView('tmp_dwd_01')
 
         spark.sql("""
 select *,
@@ -161,6 +164,8 @@ select *,
        if(lag(volume_ratio_1d,1)over(partition by stock_code order by trade_date) >1 and volume_ratio_1d >1
            and lag(close_price,1)over(partition by stock_code order by trade_date) < lag(open_price,1)over(partition by stock_code order by trade_date)
                         and close_price<open_price,1,0) as is_rise_volume_2d_low,
+       if(concept_plates rlike '预盈预增',1,0) as is_pre_profit_increase,
+       if(concept_plates rlike '预亏预减',1,0) as is_pre_deficiency_decrease,
        if(high_price>ma_5d,1,0) as is_rise_ma_5d,
        if(high_price>ma_10d,1,0) as is_rise_ma_10d,
        if(high_price>ma_20d,1,0) as is_rise_ma_20d,
@@ -231,6 +236,8 @@ select t1.trade_date,
                      if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
                      if(t1.is_rise_volume_2d=1,'连续两天放量-',null),
                      if(t1.is_rise_volume_2d_low=1,'连续两天放量且低收-',null),
+                     if(t1.is_pre_profit_increase=1,'预盈预增',null),
+                     if(t1.is_pre_deficiency_decrease=1,'预亏预减-',null),
                      if(t1.is_rise_ma_5d=1,'上穿5日均线',null),
                      if(t1.is_rise_ma_10d=1,'上穿10日均线',null),
                      if(t1.is_rise_ma_20d=1,'上穿20日均线',null),
@@ -246,6 +253,8 @@ select t1.trade_date,
         t1.is_lhb_60d+
         t1.is_rise_volume_2d+
         t1.is_rise_volume_2d_low+
+        t1.is_pre_profit_increase+
+        t1.is_pre_deficiency_decrease+
         t1.is_rise_ma_5d+
         t1.is_rise_ma_10d+
         t1.is_rise_ma_20d+
@@ -256,14 +265,18 @@ select t1.trade_date,
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_rise_volume_2d=1,'连续两天放量-',null),
-                     if(t1.is_rise_volume_2d_low=1,'连续两天放量且低收-',null)
+                     if(t1.is_rise_volume_2d_low=1,'连续两天放量且低收-',null),
+                     if(t1.is_pre_profit_increase=1,'预盈预增',null),
+                     if(t1.is_pre_deficiency_decrease=1,'预亏预减-',null)
        ) as sub_factor_names,
        (
         t1.is_min_market_value+
         t1.is_lhb_buy-
         t1.is_lhb_sell-
         -- 存在包含与被包含关系
-        if(t1.is_rise_volume_2d = 1 or t1.is_rise_volume_2d_low = 1 ,1,0)
+        if(t1.is_rise_volume_2d = 1 or t1.is_rise_volume_2d_low = 1 ,1,0)+
+        t1.is_pre_profit_increase-
+        t1.is_pre_deficiency_decrease
         ) as sub_factor_score,
        t1.holding_yield_2d,
        t1.holding_yield_5d,

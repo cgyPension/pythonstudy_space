@@ -20,7 +20,7 @@ pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
-def get_data():
+def get_data(start_date):
     try:
         appName = os.path.basename(__file__)
         # 本地模式
@@ -31,7 +31,7 @@ def get_data():
         # 去重、保留最后一次出现的
         pd_df.drop_duplicates(subset=['板块代码'], keep='last', inplace=True)
 
-        start_date = date.today()
+        start_date = pd.to_datetime(start_date).date()
         pd_df['trade_date'] = start_date
         pd_df['td'] = pd_df['trade_date'] # 分区字段放最后
         pd_df['update_time'] = datetime.datetime.now()
@@ -58,6 +58,7 @@ def get_data():
 # python ods_dc_stock_concept_plate_name_di.py
 if __name__ == '__main__':
     start_time = time.time()
-    get_data()
+    start_date = date.today()
+    get_data(start_date)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

@@ -12,6 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 
+from util.CommonUtils import get_spark
 
 warnings.filterwarnings("ignore")
 # 输出显示设置
@@ -40,4 +41,10 @@ if __name__ == '__main__':
     # t1 = pd.Timestamp('2019-01-10')
     # print(type(t1),t1)
 
-    print(pd.to_datetime('20221101').date().strftime('%Y%m%d'))
+    # print(pd.to_datetime('20221101').date().strftime('%Y%m%d')+'哈哈')
+    # tock_zh_valuation_baidu_df = ak.stock_zh_valuation_baidu(symbol="600584", indicator="市盈率(TTM)")
+    # print(tock_zh_valuation_baidu_df)
+    # ods 单独没有这个29号数据
+    # df = ak.stock_a_lg_indicator(symbol="600584")
+    df = ak.stock_a_lg_indicator(symbol="000760")
+    print(df)

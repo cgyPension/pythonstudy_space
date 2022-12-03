@@ -18,7 +18,7 @@ pd.options.display.max_columns=None
 pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
-from util.DBUtils import sqlalchemyUtil, hiveUtil
+from util.DBUtils import hiveUtil
 from util.CommonUtils import get_process_num, get_code_group, get_code_list, get_spark
 
 def multiprocess_run(code_list, start_date,end_date,hive_engine, process_num):
@@ -105,7 +105,7 @@ def get_data(ak_code, ak_name,start_date):
     return pd.DataFrame
 
 # nohup python ods_lg_indicator_di.py update 20221010 >> my.log 2>&1 &
-# python /opt/code/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py all
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py all
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py update 20221122 20221123
 if __name__ == '__main__':
     code_list = get_code_list()

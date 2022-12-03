@@ -42,7 +42,7 @@ def multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine
 
     # 全量
     if start_date == '20210101':
-        spark.sql('''truncate table tmp_ods_dc_stock_quotes_di''')
+        spark.sql('''truncate table stock.tmp_ods_dc_stock_quotes_di''')
 
         for r in result_list:
             rl = r.get()
@@ -140,7 +140,7 @@ def get_data(ak_code, ak_name, period, start_date, end_date, adjust):
             print(e)
     return pd.DataFrame
 
-# 有hive连接不能用spark-submit方式提交？
+# 有hive连接不能用spark-submit方式提交
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py update 20221121 20221121
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py all
 # nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_quotes_di.py update 20221121 20221121 >> my.log 2>&1 &

@@ -34,40 +34,54 @@ def get_data(start_date, end_date):
    s_date = '20210101'
    end_date = pd.to_datetime(end_date).date()
 
-   # 增量 因为持股5日收益 要提前5个交易日
+   # 增量 因为持股5日收益 要提前6个交易日 这里是下一交易日开盘买入 持股两天 在第二天的收盘卖出
    td_df = ak.tool_trade_date_hist_sina()
    daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
-   daterange_df = daterange_df.iloc[-5:, 0].reset_index(drop=True)
+   daterange_df = daterange_df.iloc[-7:, 0].reset_index(drop=True)
    if daterange_df.empty:
        start_date = pd.to_datetime(start_date).date()
    else:
        start_date = pd.to_datetime(daterange_df[0]).date()
 
-   spark_df = spark.sql(
-   """
+   sql1 =  """
 with tmp_ads_01 as (
-select *,
-       dense_rank()over(partition by td order by total_market_value) as dr_tmv,
-       dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
-       dense_rank()over(partition by td order by pe_ttm,pe) as dr_pe_ttm
+select *
 from stock.dwd_stock_quotes_di
 where td between '%s' and '%s'
         and stock_name not rlike 'ST'
+        --rlike语句匹配正则表达式 like rlike会自动把null的数据去掉 要转换
+        and nvl(concept_plates,'保留null') not rlike '次新股'
         and change_percent <5
         and turnover_rate between 1 and 30
         and stock_label_names rlike '小市值'
 ),
 tmp_ads_02 as (
+--去除or 停复牌
+select *
+from tmp_ads_01
+where suspension_time is null
+       and pe_ttm between 0 and 30
+--      and pe_ttm is null
+--      or pe_ttm <=30
+      or estimated_resumption_time < date_add('%s',1)
+),
+--要剔除玩所有不要股票再排序 否则排名会变动
+tmp_ads_03 as (
+select *,
+       dense_rank()over(partition by td order by total_market_value) as dr_tmv,
+       dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
+       dense_rank()over(partition by td order by pe_ttm,pe) as dr_pe_ttm,
+       dense_rank()over(partition by td order by sub_factor_score desc) as dr_sub_factor_score
+from tmp_ads_02
+),
+tmp_ads_04 as (
                select *,
                       '小市值+换手率+市盈率TTM' as stock_strategy_name,
                       -- 加上量比排序 避免排名重复
-                      dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
-               from tmp_ads_01
-               where suspension_time is null
-                       or estimated_resumption_time < date_add('%s',1)
-                       or pe_ttm is null
-                       or pe_ttm <=30
-               order by stock_strategy_ranking
+                      -- dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
+                      -- 权重 0.3 0.3 0.3 0.1
+                      dense_rank()over(partition by td order by 3*(dr_tmv+dr_turnover_rate+dr_pe_ttm)+dr_sub_factor_score,volume_ratio_1d) as stock_strategy_ranking
+               from tmp_ads_03
 )
 select trade_date,
        stock_code,
@@ -132,22 +146,26 @@ select trade_date,
        holding_yield_5d,
        current_timestamp() as update_time,
        trade_date as td
-from tmp_ads_02
+from tmp_ads_04
 where stock_strategy_ranking <=10
-   """ % (start_date, end_date, end_date))
+order by stock_strategy_ranking
+   """ % (start_date, end_date, end_date)
 
+
+   result_df = spark.sql(sql1)
 
    try:
        # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 5 个数据文件。
-       spark_df.repartition(1).write.insertInto('stock.ads_stock_suggest_di', overwrite=True)  # 如果执行不存在这个表，会报错
+       result_df.repartition(1).write.insertInto('stock.ads_stock_suggest_di', overwrite=True)  # 如果执行不存在这个表，会报错
    except Exception as e:
        print(e)
    print('{}：执行完毕！！！'.format(appName))
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py all
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update 20221110 20221130
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update 20221101 20221202
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py update 20221110
 # nohup ads_stock_suggest_di.py update 20221010 20221010 >> my.log 2>&1 &
+# nohup spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ads/ads_stock_suggest_di.py all >> my.log 2>&1 &
 # python ads_stock_suggest_di.py update 20221110 20221110
 if __name__ == '__main__':
     process_num = get_process_num()

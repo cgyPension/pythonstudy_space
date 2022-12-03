@@ -64,8 +64,8 @@ create table if not exists ads_stock_suggest_di
     sub_factor_score             int comment '主观因子分数 负面因子后缀用-',
     stock_strategy_name      string comment '股票策略名称 股票标签名称 +拼接',
     stock_strategy_ranking   string comment '策略内排行 dense_rank',
-    holding_yield_2d         decimal(20, 4) comment '持股2日后收益率',
-    holding_yield_5d         decimal(20, 4) comment '持股5日后收益率',
+    holding_yield_2d         decimal(20, 4) comment '持股2日后收益率(%)',
+    holding_yield_5d         decimal(20, 4) comment '持股5日后收益率(%)',
     update_time              timestamp comment '更新时间'
 ) comment '股票推荐 （top10）'
     partitioned by (td date comment '分区_交易日期')
