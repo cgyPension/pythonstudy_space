@@ -188,6 +188,7 @@ def work2(stock_code, start_date, end_date):
     # py.plot(fig, filename='filename.html')
     print('{}：执行完毕！！！'.format(appName))
 
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/bak/stock_plotly_k.py
 if __name__ == '__main__':
     work2('sz000681','20220101', '20221130')
     # host设置为0000 为了主机能访问 虚拟机的web服务

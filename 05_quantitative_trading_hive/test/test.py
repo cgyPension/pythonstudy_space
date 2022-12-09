@@ -45,6 +45,25 @@ if __name__ == '__main__':
     # tock_zh_valuation_baidu_df = ak.stock_zh_valuation_baidu(symbol="600584", indicator="市盈率(TTM)")
     # print(tock_zh_valuation_baidu_df)
     # ods 单独没有这个29号数据
-    # df = ak.stock_a_lg_indicator(symbol="600584")
-    df = ak.stock_a_lg_indicator(symbol="000760")
-    print(df)
+    # 字段是 date open close high low volume
+
+    # analyzer = pd.DataFrame()
+    # analyzer['年化收益率'] = 1
+    # analyzer['年化收益率（%）'] = 2
+    # # print(analyzer.columns)
+    #
+    #
+    # df = pd.DataFrame({"A": [5, 3, 6, 4],
+    #                    "B": [11, 2, 4, 3],
+    #                    "C": [4, 3, 8, 5],
+    #                    "D": [5, 4, 2, 8]})
+    #
+    # cb_fig_color = np.where(df['A'] < 5, ['#008000'], ['#ff0000'])
+    # cb_fig_color2 = np.where(df['A'] < 5, '#008000', '#ff0000')
+    # print(cb_fig_color)
+    # print(type(cb_fig_color))
+    # print(type(cb_fig_color2))
+
+
+    # print(df2.reindex_like(df1,method='backfill'))
+

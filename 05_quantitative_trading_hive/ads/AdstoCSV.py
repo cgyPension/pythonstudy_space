@@ -47,8 +47,11 @@ def get_data(start_date,stock_strategy_name='all量化投资操作'):
         # 定时上传到ptrade的文件路径
         # path = 'C:/Users/Administrator/Desktop/trade_data.csv'
         # .sel 同花顺要求的格式
-        path = '/opt/code/pythonstudy_space/{}.sel'.format(stock_strategy_name)
-        pd_df.to_csv(path, index=False, header=0,mode='w', encoding='utf-8')
+        path1 = '/opt/code/pythonstudy_space/{}.sel'.format(stock_strategy_name)
+        # .txt 东方财富要求格式
+        path2 = '/opt/code/pythonstudy_space/{}.txt'.format(stock_strategy_name)
+        pd_df.to_csv(path1, index=False, header=0,mode='w', encoding='utf-8')
+        # pd_df.to_csv(path2, index=False, header=0,mode='w', encoding='utf-8')
     except Exception as e:
         print(e)
     print('{}：执行完毕！！！'.format(appName))
@@ -59,6 +62,8 @@ def get_data(start_date,stock_strategy_name='all量化投资操作'):
 if __name__ == '__main__':
     start_time = time.time()
     start_date = date.today()
-    get_data(start_date,'小市值+换手率+市盈率TTM')
+    # get_data(start_date,'小市值+市盈率TTM+换手率')
+    get_data(start_date,'小市值+PEG+换手率')
+    get_data(start_date,'国企中字+PEG+换手率')
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

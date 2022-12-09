@@ -17,11 +17,11 @@ sys.path.append(rootPath)
 my_sender = '2855227591@qq.com'    # 发件人邮箱账号
 my_pass = 'sogvwwkvkmkqdghi'   # 发件人邮箱密码
 Subject = '量化投资操作'
-sender_show = '蔡广源'
-# recipient_shows = ['蔡广源','梁小杰','秦晋隆','侯汉炜']
-# to_addrs = ['2855227591@qq.com','amazy.jie@qq.com','1620157829@qq.com','463747069@qq.com'] # 收件人邮箱账号(这里发自己) list 可放批量
-recipient_shows = ['蔡广源','xx']
-to_addrs = ['2855227591@qq.com','2855227591@qq.com'] # 收件人邮箱账号(这里发自己) list 可放批量
+sender_show = ''
+# recipient_shows = ['蔡广源','梁小杰','秦晋隆','侯汉炜','夏伟豪']
+# to_addrs = ['2855227591@qq.com','amazy.jie@qq.com','1620157829@qq.com','463747069@qq.com','gg201008139066@gmail.com'] # 收件人邮箱账号(这里发自己) list 可放批量
+recipient_shows = ['蔡广源']
+to_addrs = ['2855227591@qq.com'] # 收件人邮箱账号(这里发自己) list 可放批量
 
 data_dic = {'机型': ['小米12', '华为P40', 'IQOO8', 'iphone13'], '价格': [3999, 5000, 3899, 5999],
             '颜色': ['白色', '紫色', '金色', '白色']}
@@ -66,7 +66,7 @@ def mail(message,Subject,sender_show,recipient_shows,to_addrs,cc_show=''):
 
 
 # 后期把邮件网页改成bigquant那个看一下F12
-def send_mail(df):
+def send_mail(df,txt=''):
     # 转化成 HTML 格式
     df_html = df.to_html(index=False)
     mail_html =  '''
@@ -163,7 +163,7 @@ def send_mail(df):
 
         <h2><b>股市有风险，投资需谨慎！！！</b></h2>
         <hr size="1px" noshade=true />
-        <p><font size="3" color="#525252"><b>股票推荐短线策略：大部分是持仓两天，合理选3~5设置权重、轮动。在9点15到9点25以涨停价挂单，这样能以开盘价成交；2点57挂跌停价，这样能以收盘价成交。方便事后统计。
+        <p><font size="3" color="#525252"><b>股票推荐短线策略：2~5天，合理选3~5设置权重、轮动。在9点15到9点25以涨停价挂单，这样能以开盘价成交；2点57挂跌停价，这样能以收盘价成交。方便事后统计。'''+ txt +'''
         </b></font></p>
         '''+ df_html +'''
         </body>

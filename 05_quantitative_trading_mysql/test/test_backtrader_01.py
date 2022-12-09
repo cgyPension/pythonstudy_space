@@ -32,6 +32,8 @@ class MyStrategy(bt.Strategy):
             self.datas[0], period=self.params.maperiod
         )
 
+
+
     def next(self):
         """
         主逻辑

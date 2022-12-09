@@ -98,24 +98,7 @@ def test_shift():
     print('df:',df)
     print(df.shift())
 
-def test_cumprod():
-    # 采用cumprod(axis = 0)函数可以找到到目前为止沿索引轴看到的值的累积乘积。
-    df = pd.DataFrame({"A": [5, 3, 6, 4],
-                       "B": [11, 2, 4, 3],
-                       "C": [4, 3, 8, 5],
-                       "D": [5, 4, 2, 8]})
-    print(df)
-    print(df.cumprod(axis = 0))
 
-    # 采用cumprod(axis = 1)函数可查找到目前为止沿列轴看到的值的累积乘积。
-    print(df.cumprod(axis = 1))
-
-    # 采用cumprod()函数查找迄今在 DataFrame 中沿索引轴看到的值的累积乘积 会跳过NaN DataFrame 中存在的值
-    df2 = pd.DataFrame({"A": [5, 3, None, 4],
-                       "B": [None, 2, 4, 3],
-                       "C": [4, 3, 8, 5],
-                       "D": [5, 4, 2, None]})
-    df2.cumprod(axis=0, skipna=True)
 
 def test_fillna():
     '''
@@ -146,27 +129,7 @@ def test_fillna():
     print(df2.fillna(method='bfill', limit=2))
     print(df2.fillna(method="ffill", limit=1, axis=1))
 
-def test_rank():
-    '''rank函数中的参数method有四个取值：无参,"min","max","first
-    "'''
 
-    ser=pd.Series([3,2,0,3],index=list('abcd'))
-    print(ser)
-    # 无参相同排名下，取平均值进行排名
-    ser = ser.rank()  # 默认为average
-    print(ser)
-
-    # 因为a与d的值相同，排名分别为3和4，取较小的排名作为它们的排名，所以a和b的排名为3。
-    ser = ser.rank(method='min')
-    print(ser)
-
-    # 因为a与d的值相同，排名分别为3和4，取较大的排名作为它们的排名，所以a和b的排名为4。
-    ser = ser.rank(method='max')
-    print(ser)
-
-    # 相同的值按照出现顺序排列，先出现的值排名靠前（The first value is ranked first），不允许并列排名
-    ser = ser.rank(method='first')
-    print(ser)
 
 
 def test_xxx():

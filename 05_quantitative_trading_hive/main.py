@@ -71,7 +71,9 @@ def task_update_daily():
 
     dwd_stock_quotes_di.get_data(start_date, end_date)
     ads_stock_suggest_di.get_data(start_date, end_date)
-    AdstoCSV.get_data(start_date,'小市值+换手率+市盈率TTM')
+    # AdstoCSV.get_data(start_date,'小市值+市盈率TTM+换手率')
+    # AdstoCSV.get_data(start_date,'小市值+PEG+换手率')
+    # AdstoCSV.get_data(start_date,'国企中字+PEG+换手率')
     # AdsSendMail.get_data()
 
     # 程序结束运行时间

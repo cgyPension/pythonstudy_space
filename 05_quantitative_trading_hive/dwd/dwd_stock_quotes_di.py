@@ -126,8 +126,10 @@ select t1.trade_date,
        if(lag(t1.close_price,29)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 29 preceding and current row)) as ma_30d,
        if(lag(t1.close_price,59)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.close_price)over(partition by t1.stock_code order by t1.trade_date rows between 59 preceding and current row)) as ma_60d,
        -- 这里是下一交易日开盘买入 持股两天 在第二天的收盘卖出
-       if(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date)-lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))*100 as holding_yield_2d,
-       if(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date)-lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))*100 as holding_yield_5d
+       -- 收益率公式优化 (后/前)-1
+       -- if(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date)-lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))*100 as holding_yield_2d,
+       if(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date)/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date)-1)*100) as holding_yield_2d,
+       if(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date)/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date)-1)*100) as holding_yield_5d
 from stock.ods_dc_stock_quotes_di t1
 left join stock.ods_lg_indicator_di t2
         on t1.trade_date = t2.trade_date

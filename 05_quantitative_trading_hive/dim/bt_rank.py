@@ -1,15 +1,17 @@
 import os
 import sys
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 import backtrader as bt
 from datetime import date, datetime
+import datetime
 import time
 import pandas as pd
 import akshare as ak
 import matplotlib.pyplot as plt  # 由于 Backtrader 的问题，此处要求 pip install matplotlib==3.2.2
 # 在linux会识别不了包 所以要加临时搜索目录
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
+from util import btUtils
 from util.CommonUtils import get_spark
 # 输出显示设置
 pd.options.display.max_rows=None
@@ -36,100 +38,87 @@ class MyCustomdata(bt.feeds.PandasData):
         ('turnover_rate',-1),
         ('stock_strategy_ranking',-1),
               )
+    # datafields = bt.feeds.PandasData.datafields + (['change_percent','turnover_rate','stock_strategy_ranking'])
 
-
-class StockCommission(bt.CommInfoBase):
-    '''自定义股票交易费用'''
-    params = (
-        ('stocklike', True),  # 指定为股票模式
-        ('commtype', bt.CommInfoBase.COMM_PERC),  # 使用百分比费用模式
-        ('percabs', True),  # commission 不以 % 为单位
-        ('stamp_duty', 0.001),)  # 印花税默认为 0.1%
-    # 自定义费用计算公式
-    def _getcommission(self, size, price, pseudoexec):
-        if size > 0:  # 买入时，只考虑佣金
-            return abs(size) * price * self.p.commission
-        elif size < 0:  # 卖出时，同时考虑佣金和印花税
-            return abs(size) * price * (self.p.commission + self.p.stamp_duty)
-        else:
-            return 0
 
 class stockStrategy(bt.Strategy):
-    '''多因子选股策略 - 直接指标选股'''
-    # 全局设定交易策略的参数
-    params = (("ranking", 5),)
-
-    def __init__(self):
+    '''多因子选股策略 - 直接指标选股
+       下一交易日开盘价买入 结束日期收盘价卖出
+    '''
+    def __init__(self, end_date,hold_day=2,hold_n=3):
         '''策略中各类指标的批量计算或是批量生成交易信号都可以写在这里'''
         '''__init__() 函数在回测过程中只会在最开始的时候调用一次，而 next() 会每个交易日依次循环调用多次；
             line 在 __init__() 中侧重于对整条 line 的操作，而在 next() 中侧重于站在当前回测时点，对单个数据点进行操作，所以对索引 [ ] 做了简化
            Backtrader 默认情况下是：在 t 日运行下单函数，然后在  t+1 日以开盘价成交；
         '''
-        # 初始化交易指令、买卖价格和手续费
-        self.order = None
-        self.buy_lst = []
-        self.buy_price = None
-        self.buy_comm = None
-        # 按目标百分比下单
-        # self.order = self.order_target_percent(target=percent)
-        # self.order = self.order_target_percent(target=0.33)
-        # Backtrader 默认是 “当日收盘后下单，次日以开盘价成交”
-        # 1. Order.Market  市价单，回测时条件达到将以下一个 bar 的开盘价执行的市价单 ；
-        # 2. Order.Close  市价单，回测时条件达到将以下一个 bar 的收盘价执行的市价单；
-        # self.order = self.buy(exectype=bt.Order.Market)
-        # self.order = self.sell(exectype=bt.Order.Close)
+        self.end_date = end_date
+        self.hold_day=hold_day-1
+        self.hold_n=hold_n
+        self.holdlist={}
 
         # 0号是指数，不进入选股池，从1号往后进入股票池
-        self.stocks = self.datas[1:]
+        # self.stocks = self.datas[1:]
         # 循环计算每只股票的指标 排除第一个 沪深300指数
         # todo stock_strategy_ranking 是自己在sql里面计算好的排序字段
-        self.buy_sig = {x: self.getdatabyname(x).stock_strategy_ranking <= self.p.ranking for x in self.getdatanames()[1:]}
+        # self.buy_sig = {x: self.getdatabyname(x).stock_strategy_ranking <= self.p.ranking for x in self.getdatanames()[1:]}
         # print('self.buy_sig：',self.buy_sig.values(),type(self.buy_sig.values()))
         # for i, d in enumerate(self.stocks):
         #     self.buy_sig =
 
-
+        # print('self.lines.getlinealiases()：',self.datas[0].lines.getlinealiases())
 
     def next(self):
         '''在这里根据交易信号进行买卖下单操作'''
         """
         主逻辑 
         """
-        # 检查是否有指令等待执行
-        if self.order:
+        hold_now = 0
+        if hold_now >= self.hold_n:
             return
-        # 回测最后一天不进行买卖
-        if self.stocks[0].datetime.date(0) == end_date:
+        # 回测如果是最后一天，则不进行买卖
+        if self.datas[0].datetime.date() == self.end_date:
             return
 
-        # print('self.datas[0]:', self.datas[0].datetime.date(0))
-
-        for i, d in enumerate(self.stocks):
-            print(self.buy_sig)
-            # 没有持仓，则可以在下一交易日开盘价买 不要在股票数据最后前一天进行买入
-            if not len(self.getposition(d)) and self.stocks.datetime.date(1) < end_date:
-                if self.buy_sig == 1:  # 达到买入条件 买
-                    # self.buy(data=d)
-                    self.order = self.order_target_percent(target=0.33)
-                    self.order = self.buy(data=d,exectype=bt.Order.Market)
+        # 基准不进行买卖 不传入基准了
+        # for data in self.datas[1:]:
+        for data in self.datas:
+            # 6分1仓位
+            # money = self.broker.get_cash() / self.hold_n*2 - hold_now
+            money = self.broker.getvalue() / 6
+            #没有持仓，则可以在下一交易日开盘价买 不要在股票数据最后周期进行买入
+            if self.getposition(data).size == 0 and data.stock_strategy_ranking[0] <= self.hold_n and data.datetime.date()<=self.end_date-datetime.timedelta(self.hold_day+1):
+                    # 如果可用现金小于成本则跳过这个循环
+                    size = int(money / data.close[0] / 100) * 100
+                    self.order = self.buy(data=data, size=size, exectype=bt.Order.Market)
+                    # 6分1仓位
+                    # self.order = self.order_target_percent(data=data, target=0.16, exectype=bt.Order.Market)
+                    self.holdlist[data._name] = 1
+                    hold_now = hold_now + 1
             # 如果有持仓 在下一交易日收盘价 平仓
-            elif len(self.getposition(d)) and self.stocks.datetime.date(1) < end_date:
+            elif self.getposition(data).size > 0 and self.holdlist[data._name] == self.hold_day:
+            # elif self.getposition(data)>0:
                 # self.close(data=d)
-                self.close(exectype=bt.Order.Close)
-
+                # elf.getposition(data)>0 这里应该设置成当日？或者直接改成else卖出
+                # self.close(data=data,exectype=bt.Order.Close)
+                # 应该以当日收盘价卖出
+                # self.order = self.sell()
+                self.order = self.sell(data=data, size=self.getposition(data).size,exectype=bt.Order.Close)
+                # 卖出了后再重新计算该字典
+                del self.holdlist[data._name]
+            elif self.getposition(data).size > 0:
+                self.holdlist[data._name] = self.holdlist[data._name] + 1
 
     # 可以不要，但如果你数据未对齐，需要在这里检验
     def prenext(self):
-        print('prenext执行 数据没有对齐:', self.datetime.date(), self.getdatabyname()._name, self.getdatabyname().close[0])
-        pass
+        print('prenext执行 数据没有对齐:', self.datetime.date(), self.getdatabyname(self.data._name), self.getdatabyname(self.data._name).close[0])
 
     def log(self, txt, dt=None, do_print=False):
         """
         可选，构建策略打印日志的函数：可用于打印订单记录或交易记录等
         """
         # 以第一个数据data0，即指数作为时间基准
-        if self.params.printlog or do_print:
-            dt = dt or self.datetime.date()
+        if do_print:
+            dt = dt or self.datas[0].datetime.date()
             print('%s, %s' % (dt.isoformat(), txt))
 
 
@@ -137,59 +126,75 @@ class stockStrategy(bt.Strategy):
         """
         通知订单信息
         """
-        # 如果 order 为 submitted/accepted,返回空
+        order_status = ['Created', 'Submitted', 'Accepted', 'Partial',
+                        'Completed', 'Canceled', 'Expired', 'Margin', 'Rejected']
+        # 未被处理的订单 order 为 submitted/accepted
         if order.status in [order.Submitted, order.Accepted]:
+            # self.log('未被处理的订单：ref:%.0f, name: %s, Order: %s' % (order.ref,
+            #                                             order.data._name,
+            #                                             order_status[order.status]))
             return
-        # 如果order为buy/sell executed,报告价格结果
+
+        # 已经处理的订单 如果order为buy/sell executed,报告价格结果
         if order.status in [order.Completed]:
             if order.isbuy():
                 self.log(
-                    f"买入:\n价格:{order.executed.price},\
-                成本:{order.executed.value},\
-                手续费:{order.executed.comm}"
-                )
+                    'BUY EXECUTED, ref:%s, Stock: %s, Price: %s, Cost: %s, Comm %s, Size: %s' %
+                    (order.ref,  # 订单编号
+                     order.data._name, # 股票名称
+                     order.executed.price,  # 成交价
+                     order.executed.value,  # 成交额
+                     order.executed.comm,  # 佣金
+                     order.executed.size))  # 成交量
                 self.buyprice = order.executed.price
                 self.buycomm = order.executed.comm
             else:
-                self.log(
-                    f"卖出:\n价格：{order.executed.price},\
-                成本: {order.executed.value},\
-                手续费{order.executed.comm}"
-                )
+                self.log('SELL EXECUTED, ref:%s, Stock: %s, Price: %s, Cost: %s, Comm %s, Size: %s' %
+                         (order.ref,
+                          order.data._name,
+                          order.executed.price,
+                          order.executed.value,
+                          order.executed.comm,
+                          order.executed.size))
             self.bar_executed = len(self)
 
-            # 如果指令取消/交易失败, 报告结果
-        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log("交易失败")
+            # # 订单未完成 如果指令取消/交易失败, 报告结果
+        elif order.status in [order.Canceled, order.Margin, order.Rejected, order.Expired]:
+            self.log('交易失败：ref:%s, name: %s, status: %s' % (order.ref, order.data._name, order_status[order.status]),do_print=True)
         self.order = None
 
     def notify_trade(self, trade):
         """
         通知交易信息
         """
-        if not trade.isclosed:
-            return
-        self.log(f"策略收益：\n毛收益 {trade.pnl:.2f}, 净收益 {trade.pnlcomm:.2f}")
+        # if not trade.isclosed:
+        #     return
+        # self.log(f"策略收益：毛收益 {trade.pnl:.2f}, 净收益 {trade.pnlcomm:.2f}")
+        # 交易刚打开时
+        if trade.justopened:
+            self.log('Trade Opened, Stock: %s, Size: %.2f,Price: %.2f' % (
+                trade.getdataname(), trade.size, trade.price))
+        # 交易结束 平仓
+        elif trade.isclosed:
+            self.log('Trade Closed, Stock: %s, GROSS %.2f, NET %.2f, Comm %.2f' % (
+                trade.getdataname(), trade.pnl, trade.pnlcomm, trade.commission))
+        # 更新交易状态
+        else:
+            self.log('Trade Updated, Stock: %s, Size: %.2f,Price: %.2f' % (
+                trade.getdataname(), trade.size, trade.price))
 
     # def stop(self):
     #     """
     #     回测结束后输出结果
     #     """
-    #     self.log("期末总资金 %.2f" % (self.broker.getvalue()), do_print=True)
+    #     self.log("期末总资金 %s" % (self.broker.getvalue()), do_print=True)
 
-def hc(stockStrategy,start_date,end_date,start_cash=100000, stake=800, commission_fee=0.001,perc=0.0001):
+
+def hc(stockStrategy,start_date,end_date,start_cash=100000, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
     appName = os.path.basename(__file__)
     # 本地模式
     spark = get_spark(appName)
     start_date, end_date = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date()
-
-    cerebro = bt.Cerebro()
-    # 添加业绩基准时，需要事先将业绩基准的数据添加给 cerebro 沪深300
-    stock_zh_index_daily_df = ak.stock_zh_index_daily(symbol="sh000300")
-    stock_zh_index_daily_df = stock_zh_index_daily_df.set_index(pd.to_datetime(stock_zh_index_daily_df['date'])).sort_index()
-    banchdata = bt.feeds.PandasData(dataname=stock_zh_index_daily_df, fromdate=start_date, todate=end_date)
-    cerebro.adddata(banchdata, name='沪深300')
-    cerebro.addobserver(bt.observers.Benchmark, data=banchdata)
 
     # 导入到bt 不能有str类型的字段
     sql = """
@@ -201,17 +206,11 @@ select *,
 from stock.dwd_stock_quotes_di
 where td between '%s' and '%s'
         and stock_code in ('sh601988','sz300364','sz300659','sh603709','sz300981')
-        -- 剔除京股
-        -- and substr(stock_code,1,2) != 'bj'
-        -- 剔除涨停 涨幅<5
---         and change_percent <5
---         and turnover_rate between 1 and 30
---         and stock_label_names rlike '小市值'
 ),
 tmp_ads_02 as (
                select *,
                       '小市值+换手率+市盈率TTM' as stock_strategy_name,
-                      dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm) as stock_strategy_ranking
+                      dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume) as stock_strategy_ranking
                from tmp_ads_01
                where suspension_time is null
                        or estimated_resumption_time < date_add('%s',1)
@@ -240,34 +239,41 @@ from tmp_ads_02
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
 
 
+    # 添加业绩基准时，需要事先将业绩基准的数据添加给 cerebro 沪深300 指数字段是 date open close high low volume
+    benchmark_df = ak.stock_zh_index_daily(symbol=benchmark_code)
+    benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date)]
+    benchmark_df = benchmark_df.set_index(pd.to_datetime(benchmark_df['date'])).sort_index()
+    # 缺失值处理：日期对齐时会使得有些交易日的数据为空，所以需要对缺失数据进行填充 要加上pd_df没有的字段
+    benchmark_df = benchmark_df[['open', 'close', 'high', 'low', 'volume']]
+    benchmark_df['change_percent'] = 0
+    benchmark_df['turnover_rate'] = 0
+    benchmark_df['stock_strategy_ranking'] = 9999
+
+    cerebro = bt.Cerebro()
+    # banchdata = MyCustomdata(dataname=benchmark_df)
+    # cerebro.adddata(banchdata, name='沪深300')
+    # cerebro.addobserver(bt.observers.Benchmark, data=banchdata)
+
     # 按股票代码，依次循环传入数据
     for stock in pd_df['stock_code'].unique():
         df = pd_df.query(f"stock_code=='{stock}'")[['open', 'high', 'low', 'close', 'volume','change_percent','turnover_rate','stock_strategy_ranking']]
-        # 缺失值处理：日期对齐时会使得有些交易日的数据为空，所以需要对缺失数据进行填充
-        # data = pd.DataFrame(index=pd_df.index.unique())  # 获取回测区间内所有交易日
-        # data_ = pd.merge(data, df, left_index=True, right_index=True, how='left')
-        # data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
-        # data_.loc[:, ['open', 'high', 'low', 'close', 'EP', 'ROE']] = data_.loc[:,
-        #                                                               ['open', 'high', 'low', 'close']].fillna(
-        #     method='pad')
-        # data_.loc[:, ['open', 'high', 'low', 'close', 'EP', 'ROE']] = data_.loc[:,
-        #                                                               ['open', 'high', 'low', 'close']].fillna(
-        #     0.0000001)
-
+        # 缺失值处理 每个股票与指数匹配日期
+        df = df.reindex_like(benchmark_df)
+        # 排序字段要特别填充
+        df.loc[:, ['stock_strategy_ranking']] = df.loc[:, ['stock_strategy_ranking']].fillna(9999)
+        # 用后面下一日非缺失的填充 pad为前一日
+        df.fillna(method='bfill', inplace=True)
         # 通过 name 实现数据集与股票的一一对应
         # 增加字段 规范化数据格式
-        datafeed = MyCustomdata(dataname=df,
-                                   fromdate=start_date,
-                                   todate=end_date,
-                                   timeframe=bt.TimeFrame.Days)  # 将数据的时间周期设置为日
         # datafeed = MyCustomdata(dataname=df,
-        #                            fromdate=start_date,
-        #                            todate=end_date)
+        #                            fromdate=pd.to_datetime(start_date),
+        #                            todate=pd.to_datetime(end_date),
+        #                            timeframe=bt.TimeFrame.Days)  # 将数据的时间周期设置为日
+        datafeed = MyCustomdata(dataname=df)
         # 将数据加载至回测系统
         # 通过 name 实现数据集与股票的一一对应
         cerebro.adddata(datafeed, name=stock)
-        print(f"{stock} Done !")
-
+        # print(f"{stock} Done !")
 
     # 设置初始资金
     cerebro.broker.setcash(start_cash)
@@ -276,46 +282,37 @@ from tmp_ads_02
     # 设计手续费 交易佣金，双边各
     cerebro.broker.setcommission(commission=commission_fee)
     # 滑点：双边各 0.0001 使交易更真实 x * (1+ n%) 由于网络等实际成交价格会有编差
-    cerebro.broker.set_slippage_perc(perc=perc)
+    # cerebro.broker.set_slippage_perc(perc=perc)
     # 实例化 自定义股票交易费用
-    mycomm = StockCommission(stamp_duty=0.001, commission=0.001)
+    mycomm = btUtils.StockCommission(stamp_duty=0.001, commission=0.001)
     # 添加进 broker
     cerebro.broker.addcommissioninfo(mycomm)
-    # 设置单笔交易买入数量 每次固定交易stake股
-    cerebro.addsizer(bt.sizers.FixedSize, stake=stake)
-    # 固定最大成交量
-    # cerebro.broker.set_filler(bt.broker.fillers.FixedSize(size=3000))
 
     # 添加策略至回测系统！
-    cerebro.addstrategy(stockStrategy)
-
+    cerebro.addstrategy(stockStrategy,end_date=end_date)
     # 添加分析指标
-    cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='_TimeReturn') # 返回收益率时序
-    # cerebro.addanalyzer(bt.analyzers.Returns, _name='_Returns', tann=252) # 计算年化收益：日度收益
-    # cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='_AnnualReturn')  # 返回年初至年末的年度收益率 年化收益率
-    # cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio')  # 夏普比率
-    # 计算年化夏普比率：日度收益
-    # cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio', timeframe=bt.TimeFrame.Days, annualize=True,riskfreerate=0)  # 计算夏普比率
-    # cerebro.addanalyzer(bt.analyzers.SharpeRatio_A, _name='_SharpeRatio_A')
-    # cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown')  # 计算最大回撤相关指标
-
+    btUtils.add_ananlsis_indictor(cerebro)
     # 参数优化器 只有指标哪些在bt计算才好用，比如比较同一个策略 不同的均线 最终的收益率
     # cerebro.optstrategy(TestStrategy, period1=range(5, 25, 5), period2=range(10, 41, 10))
-    print("期初总资金: %.2f" % cerebro.broker.getvalue())
-    # 启动回测
-    result = cerebro.run()
-    # result = cerebro.run(runonce=False) # 日期对齐 sql计算好导入指标的不能用这个 要自己在sql对齐 除非在bt计算指标
-    print("期末总资金: %.2f" % cerebro.broker.getvalue())
+
+    print("期初总资金: %s" % cerebro.broker.getvalue())
+    # 必须放在运行前
+    # cerebro.addwriter(bt.WriterFile, csv=True, out=r'交易数据.csv')
+    results = cerebro.run(tradehistory=True) # 启动回测
+    end_cash = round(cerebro.broker.getvalue(),2)
+    print("期末总资金: %s" % cerebro.broker.getvalue())
+    start = results[0]
+    # 得到分析指标数据
+    analyzer_df,tl_df = btUtils.get_analysis_indictor(start,benchmark_df)
+    btUtils.run_cerebro_dash(analyzer_df,tl_df,'小市值+市盈率TTM+换手率',start_date,end_date,start_cash,end_cash)
     # 可视化回测结果
-    cerebro.plot()
-    # 得到收益率时序 通过name提取结果
-    # ret = pd.Series(result[0].analyzers._TimeReturn.get_analysis())
+    # cerebro.plot()
 
     ######### 注意 #########
     # PyFolio 分析器返回的收益也是月度收益，但是绘制的各种收益分析图形会有问题，有些图绘制不出来
 
-# spark-submit /opt/pythonstudy_space/code/05_quantitative_trading_hive/dim/bt_rank.py
-# python /opt/pythonstudy_space/code/05_quantitative_trading_hive/dim/bt_rank.py
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py
 # nohup bt_rank.py >> my.log 2>&1 &
 # python bt_rank.py all
 if __name__ == '__main__':

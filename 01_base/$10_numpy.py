@@ -30,6 +30,13 @@ def test_log():
     print(np.log2([1,2,3,8]))
     print(np.log10([1,2,3,8]))
 
+def test_exp():
+    # exp：高等数学里以自然常数e为底的指数函数
+    # numpy.exp()：返回e的幂次方，e是一个常数为2.71828
+    print(np.exp(1))
+    print(np.exp(2))
+
+
 def test_column_stack():
     '''列合并为矩阵：np.column_stack()'''
     a = np.array((1, 2, 3))
@@ -41,11 +48,19 @@ def test_column_stack():
     print(c,type(c))
 
 
-def test_xxx():
-    pass
 
-def test_xxx():
-    pass
+
+
+def test_clip():
+    '''
+    一般用来做极值处理 给定一个区间，区间外的值被裁剪到区间边缘
+    numpy.clip(a, a_min, a_max, out=None)[source]
+    '''
+    # 将数组中的元素限制在a_min, a_max之间，大于a_max的就使得它等于 a_max，小于a_min,的就使得它等于a_min
+    x = np.array([1, 2, 3, 5, 6, 7, 8, 9])
+    print(np.clip(x, 3, 8))
+    z = np.array([[1, 2, 3, 5, 6, 7, 8, 9], [1, 2, 3, 5, 6, 7, 8, 9]])
+    print(np.clip(z, 3, 8))
 
 def test_xxx():
     pass
@@ -57,5 +72,4 @@ def test_xxx():
     pass
 
 if __name__ == '__main__':
-    test_column_stack()
-
+    test_clip()

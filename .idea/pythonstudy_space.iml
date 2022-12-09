@@ -6,6 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/05_quantitative_trading" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/05_quantitative_trading_hive" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/05_quantitative_trading_hive" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/06_科大财经课程" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/05_quantitative_trading_mysql" />
     </content>
     <orderEntry type="jdk" jdkName="Remote Python 3.9.12 (sftp://cgy@hadoop102:22/opt/module/anaconda3/envs/pyspark_env/bin/python)" jdkType="Python SDK" />
