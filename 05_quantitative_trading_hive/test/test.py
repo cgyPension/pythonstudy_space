@@ -9,6 +9,7 @@ import talib as ta
 import akshare as ak
 import numpy as np
 import pandas as pd
+import backtrader as bt
 import matplotlib.pyplot as plt
 import plotly.express as px
 
@@ -57,13 +58,17 @@ if __name__ == '__main__':
     #                    "B": [11, 2, 4, 3],
     #                    "C": [4, 3, 8, 5],
     #                    "D": [5, 4, 2, 8]})
-    #
+
     # cb_fig_color = np.where(df['A'] < 5, ['#008000'], ['#ff0000'])
     # cb_fig_color2 = np.where(df['A'] < 5, '#008000', '#ff0000')
     # print(cb_fig_color)
     # print(type(cb_fig_color))
     # print(type(cb_fig_color2))
-
-
+    # print(type(df['A'].iloc[-1]))
+    start_date, end_date = pd.to_datetime('20221204').date(),pd.to_datetime('20221209').date()
+    df = pd.DataFrame({"A": [5, 3, 6, 4]})
+    # print(df/df.iloc[0])
+    print(bt.TimeFrame.Years)
+    print(type(bt.TimeFrame.Days))
     # print(df2.reindex_like(df1,method='backfill'))
 

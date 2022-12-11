@@ -1,5 +1,8 @@
 import os
 import sys
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 import backtrader as bt
 from backtrader.mathsupport import average
 from datetime import date, datetime
@@ -9,6 +12,7 @@ import time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt  # 由于 Backtrader 的问题，此处要求 pip install matplotlib==3.2.2
+import akshare as ak
 import dash
 from dash import dcc
 import dash_html_components as html
@@ -19,10 +23,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 # 在linux会识别不了包 所以要加临时搜索目录
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
-from util.CommonUtils import get_spark
+from util import algorithmUtils
+
 # 输出显示设置
 pd.options.display.max_rows=None
 pd.options.display.max_columns=None
@@ -52,63 +54,162 @@ class StockCommission(bt.CommInfoBase):
 
 # 添加分析器
 def add_ananlsis_indictor(cerebro):
-    cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='_TimeReturn')  # 返回收益率时序
-    cerebro.addanalyzer(bt.analyzers.Returns, _name='_Returns', tann=252) # 计算年化收益：日度收益
-    cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown')# 计算最大回撤相关指标
-    # cerebro.addanalyzer(bt.analyzers.AnnualReturn, _name='_AnnualReturn')  # 返回年初至年末的年度收益率 年化收益率
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio')  # 夏普比率
-    # 计算年化夏普比率：日度收益
-    # cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio', timeframe=bt.TimeFrame.Days, annualize=True,riskfreerate=0)  # 计算夏普比率
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio_A, _name='_SharpeRatio_A') # 年化夏普比率
+    '''A股一年有250日交易日
+      backtrader默认是美股一年252个交易日
+      用官方的分析器成本更高
+    '''
+    # cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='_TimeReturn')  # 返回收益率时序
+    # cerebro.addanalyzer(bt.analyzers.Returns, _name='_Returns', tann=250) # 计算年化收益：日度收益
+    # cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown')# 计算最大回撤相关指标
+    # 计算年化夏普比率
+    # cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio', timeframe=bt.TimeFrame.Days, factor=250,annualize=True,riskfreerate=0.03)
     # 添加自定义的分析指标
     # cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='_TradeAnalyzer')
     cerebro.addanalyzer(trade_list, _name='_tradelist')
+    cerebro.addanalyzer(trade_assets, _name='_trade_assets')
     cerebro.addanalyzer(Kelly, _name='_Kelly')
+
+
 
 def get_analysis_indictor(start,benchmark_df):
     tl_df = pd.DataFrame(start.analyzers._tradelist.get_analysis())
 
     Kelly_df = pd.DataFrame(start.analyzers._Kelly.get_analysis())
-    winProb = round(Kelly_df.at[0, '胜率'] * 100, 2)
+    # winProb = round(Kelly_df.at[0, '胜率'] * 100, 2)
+    cl_df, cl_an_df = start.analyzers._trade_assets.get_analysis()
 
-    tr_s = pd.Series(start.analyzers._TimeReturn.get_analysis())
-
-    returns_dict = start.analyzers._Returns.get_analysis()
-    rnorm100_rate = round(returns_dict['rnorm100'],2)
-
-    # 两个夏普比率的值都是空
-    sharpe_dict = start.analyzers._SharpeRatio.get_analysis()
-    sharpe_ratio = sharpe_dict['sharperatio']
-    # sharpe_A_ratio 确实是空
-    sharpe_A_dict = start.analyzers._SharpeRatio_A.get_analysis()
-    sharpe_A_ratio = sharpe_A_dict['sharperatio']
-
-    drawdown_dict = start.analyzers._DrawDown.get_analysis()
-    max_drawdown_rate = round(drawdown_dict['max']['drawdown'],2)*-1
+    # tr_s = pd.Series(start.analyzers._TimeReturn.get_analysis())
+    # returns_dict = start.analyzers._Returns.get_analysis()
+    # rnorm100_rate = round(returns_dict['rnorm100'],2)
+    # 夏普比率 确实是空
+    # sharpe_dict = start.analyzers._SharpeRatio.get_analysis()
+    # sharpe_ratio = round(sharpe_dict['sharperatio'],2)
+    # drawdown_dict = start.analyzers._DrawDown.get_analysis()
+    # max_drawdown_rate = round(drawdown_dict['max']['drawdown'],2)
 
 
-    # 收益统计
-    cl_df = pd.DataFrame([['本策略',0,rnorm100_rate,winProb,max_drawdown_rate,sharpe_A_ratio,0,0,0,0]
-                             ], columns=['策略','累计收益率', '年化收益率', '胜率','最大回撤%', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率'])
-    bm_df = benchmark_analysis(benchmark_df)
-    analyzer_df = pd.concat([cl_df, bm_df], axis=0).reset_index()
-    # 还是识别不了_DrawDown
-    # analyzer['最大回撤%'] = start.analyzers._DrawDown.get_analysis()['max']['drawdown'] * (-1)
+    benchmark_df,benchmark_an_df = benchmark_analysis(benchmark_df)
+    analyzer_df = pd.concat([cl_an_df, benchmark_an_df], axis=0).reset_index()
+
+    # cl_df,benchmark_df要合并只取收盘价 资产字段 加个标记字段 本策略 沪深 再合一个新的df 相对收益率  本策略要加一个持仓占比的字段新的df吧由原本那个策略分析器生成
 
     print(tl_df)
-    print(Kelly_df)
-    print(analyzer_df)
-    print('收益率时序：',tr_s)
-    print('returns_dict：',returns_dict)
+    # print(Kelly_df)
+    print('cl_df：',cl_df)
+    print('cl_an_df：',cl_an_df)
+    # print(analyzer_df)
     return analyzer_df,tl_df
 
 def benchmark_analysis(benchmark_df):
     benchmark_df['今日收益率']=benchmark_df['close'].shift(1)/benchmark_df['close']
     benchmark_df['今日收益率']=benchmark_df['今日收益率'].fillna(0)
+    benchmark_df['近7天收益率']=benchmark_df['今日收益率'].rolling(window=7,min_periods=1).sum()
+    # 这里取 22天交易日
+    benchmark_df['近1月收益率']=benchmark_df['今日收益率'].rolling(window=22,min_periods=1).sum()
+    benchmark_df['近3月收益率']=benchmark_df['今日收益率'].rolling(window=66,min_periods=1).sum()
+    benchmark_df['累计收益率']=(benchmark_df['close']/benchmark_df['close'].iloc[0])-1
+    # benchmark_df['累计收益率']=benchmark_df['今日收益率'].cumprod()
+    # benchmark_df['累计收益率']=(benchmark_df['今日收益率']+1).cumprod()-1
 
-    benchmark_analysis = pd.DataFrame([['沪深300', 0, 0,0,21,0,0,0,0,0]],
+    # 累计收益走势图
+    # 收益统计表
+    total_ret=round(benchmark_df['累计收益率'].iloc[-1],2)
+    rate_1d=round(benchmark_df['今日收益率'].iloc[-1],2)
+    rate_7d=round(benchmark_df['近7天收益率'].iloc[-1],2)
+    rate_22d=round(benchmark_df['近1月收益率'].iloc[-1],2)
+    rate_66d=round(benchmark_df['近3月收益率'].iloc[-1],2)
+    # 年化收益率
+    annual_ret = round(pow(1 + benchmark_df['累计收益率'].iloc[-1], 250/len(benchmark_df)) - 1,2)
+    max_drawdown_rate = algorithmUtils.max_drawdown(benchmark_df['close'])
+    # 夏普比率 表示每承受一单位总风险，会产生多少的超额报酬，可以同时对策略的收益与风险进行综合考虑。可以理解为经过风险调整后的收益率。计算公式如下，该值越大越好
+    # 超额收益率以无风险收益率为基准
+    # 公认默认无风险收益率为年化3%
+    exReturn = benchmark_df['今日收益率'] - 0.03 / 250
+    sharperatio = round(np.sqrt(len(exReturn)) * exReturn.mean() / exReturn.std(),2)
+
+
+    benchmark_an_df = pd.DataFrame([['沪深300', total_ret, annual_ret,None,max_drawdown_rate,sharperatio,rate_1d,rate_7d,rate_22d,rate_66d]],
                                       columns=['策略','累计收益率', '年化收益率', '胜率','最大回撤%', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率'])
-    return benchmark_analysis
+    return benchmark_df,benchmark_an_df
+
+
+class trade_assets(bt.Analyzer):
+    '''todo 自定义分析器 获取每日总资产 收益率等'''
+
+    def get_analysis(self):
+        return self.cl_df, self.cl_an_df
+
+    def start(self):
+        super(trade_assets, self).start()
+        self.rets = []
+        self.cl_df = pd.DataFrame()
+        self.cl_an_df = pd.DataFrame()
+        self.winProb = None
+        self.pnlWins = []
+        self.pnlLosses = []
+
+    def next(self):
+        super(trade_assets, self).next()
+        # 这里总资产会自动3位小数四舍五入 与策略的总资产next获取有小小区别 这个持仓占比好像有点问题
+        self.rets.append({'交易日期': self.datas[0].datetime.datetime(), '当前总资产': self.strategy.broker.getvalue(),'持仓比': (self.strategy.broker.getvalue()-self.strategy.broker.getcash())/self.strategy.broker.getvalue()})
+
+    def notify_trade(self, trade):
+        if trade.status == trade.Closed:
+            if trade.pnlcomm > 0:
+                # 盈利加入盈利列表
+                self.pnlWins.append(trade.pnlcomm)
+            else:
+                # 亏损加入亏损列表 利润0算亏损
+                self.pnlLosses.append(trade.pnlcomm)
+
+    def stop(self):
+        # 计算胜率
+        if len(self.pnlWins) > 0 and len(self.pnlLosses) > 0:
+            avgWins = average(self.pnlWins)  # 计算平均盈利
+            avgLosses = abs(average(self.pnlLosses))  # 计算平均亏损（绝对值）
+            winLossRatio = avgWins / avgLosses  # 盈亏比
+            if winLossRatio == 0:
+                self.winProb = None
+            else:
+                numberOfWins = len(self.pnlWins)  # 获胜次数
+                numberOfLosses = len(self.pnlLosses)  # 亏损次数
+                numberOfTrades = numberOfWins + numberOfLosses  # 总交易次数
+                self.winProb = numberOfWins / numberOfTrades  # 计算胜率
+        else:
+            self.winProb = None
+
+        self.cl_df = pd.DataFrame(self.rets)
+        self.cl_df['今日收益率'] = self.cl_df['当前总资产'].shift(1) / self.cl_df['当前总资产']
+        self.cl_df['今日收益率'] = self.cl_df['今日收益率'].fillna(0)
+        self.cl_df['近7天收益率'] = self.cl_df['今日收益率'].rolling(window=7, min_periods=1).sum()
+        # 这里取 22天交易日
+        self.cl_df['近1月收益率'] = self.cl_df['今日收益率'].rolling(window=22, min_periods=1).sum()
+        self.cl_df['近3月收益率'] = self.cl_df['今日收益率'].rolling(window=66, min_periods=1).sum()
+        self.cl_df['累计收益率'] = (self.cl_df['当前总资产'] / self.cl_df['当前总资产'].iloc[0]) - 1
+        # self.cl_df['累计收益率']=self.cl_df['今日收益率'].cumprod()
+        # self.cl_df['累计收益率']=(self.cl_df['今日收益率']+1).cumprod()-1
+
+        # 累计收益走势图
+        # 收益统计表
+        total_ret = round(self.cl_df['累计收益率'].iloc[-1], 2)
+        rate_1d = round(self.cl_df['今日收益率'].iloc[-1], 2)
+        rate_7d = round(self.cl_df['近7天收益率'].iloc[-1], 2)
+        rate_22d = round(self.cl_df['近1月收益率'].iloc[-1], 2)
+        rate_66d = round(self.cl_df['近3月收益率'].iloc[-1], 2)
+        # 年化收益率
+        annual_ret = round(pow(1 + self.cl_df['累计收益率'].iloc[-1], 250 / len(self.cl_df)) - 1, 2)
+        max_drawdown_rate = algorithmUtils.max_drawdown(self.cl_df['当前总资产'])
+        # 夏普比率 表示每承受一单位总风险，会产生多少的超额报酬，可以同时对策略的收益与风险进行综合考虑。可以理解为经过风险调整后的收益率。计算公式如下，该值越大越好
+        # 超额收益率以无风险收益率为基准
+        # 公认默认无风险收益率为年化3%
+        exReturn = self.cl_df['今日收益率'] - 0.03 / 250
+        sharperatio = round(np.sqrt(len(exReturn)) * exReturn.mean() / exReturn.std(), 2)
+
+        self.cl_an_df = pd.DataFrame([['本策略', total_ret, annual_ret, round(self.winProb * 100, 2), max_drawdown_rate,
+                                       sharperatio, rate_1d, rate_7d, rate_22d, rate_66d]],
+                                     columns=['策略', '累计收益率', '年化收益率', '胜率', '最大回撤%', '夏普比率', '今日收益率', '近7天收益率',
+                                              '近1月收益率',
+                                              '近3月收益率'])
 
 def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash):
     '''回测结果可视化'''
@@ -131,11 +232,11 @@ def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_c
     tl_df.sort_index(ascending=False,inplace=True)
     app.layout = html.Div(
         [
-            html.H1(
+            html.H3(
                 children='{}策略评估'.format(strategy_name),
                 style=dict(textAlign='center', color='black')),
             html.Div(
-                children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{} '.format(start_date,end_date,start_cash,end_cash),
+                children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}    持股周期：2天     买入规则：排名<=3'.format(start_date,end_date,start_cash,end_cash),
                 style=dict(textAlign='center', color='black')),
             html.H4('收益统计'),
             # dcc.Graph(figure=cb_fig),
@@ -160,7 +261,7 @@ def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_c
                                 'column_id': col
                             },
                             'color': '#ff0000'
-                        } for col in ['累计收益率', '年化收益率', '最大回撤%', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率']
+                        } for col in ['累计收益率', '年化收益率', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率']
                     ] +
                     [
                         {
@@ -169,7 +270,7 @@ def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_c
                                 'column_id': col
                             },
                             'color': '#008000'
-                        } for col in ['累计收益率', '年化收益率', '最大回撤%', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率']
+                        } for col in ['累计收益率', '年化收益率', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率']
                     ]
                 ),
                 style_header={
@@ -231,12 +332,8 @@ def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_c
                             }
                         )
                     )
-                ],
-                style={
-                    'margin-top': '50px'
-                }
+                ]
             )
-
         ]
     )
 
@@ -265,9 +362,8 @@ def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_c
     app.run(host='0.0.0.0', port='8000', debug=True)
 
 
-
 class trade_list(bt.Analyzer):
-    '''自定义分析器 用于查看每笔交易盈亏情况'''
+    '''todo 自定义分析器 用于查看每笔交易盈亏情况'''
     # https://blog.csdn.net/qq_26742269/article/details/123051695
     def get_analysis(self):
         return self.trades
@@ -325,7 +421,6 @@ class trade_list(bt.Analyzer):
                                 '买入日期': datein, '买价': round(pricein, 2), '卖出日期': dateout, '卖价': round(priceout, 2),
                                 '收益率%': round(pcntchange, 2), '利润': round(pnl, 2), '利润总资产比%': round(pnlpcnt, 2),
                                 '股数': size, '股本': round(value, 2), '仓位比%': round(value/brokervalue*100, 2),'累计收益': round(self.cumprofit, 2),
-                                '持股天数柱': barlen,
                                 '最大利润%': round(mfe, 2), '最大亏损%': round(mae, 2)})
 
 class Kelly(bt.Analyzer):

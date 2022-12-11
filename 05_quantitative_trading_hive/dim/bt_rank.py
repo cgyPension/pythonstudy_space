@@ -28,18 +28,12 @@ class MyCustomdata(bt.feeds.PandasData):
     '''增加字段 本身必须包含规则的7个字段 末尾,不能去掉
     '''
     lines = (
-        'change_percent',
-        'turnover_rate',
         'stock_strategy_ranking',
              )
     # -1表示自动按列明匹配数据
     params = (
-        ('change_percent',-1),
-        ('turnover_rate',-1),
         ('stock_strategy_ranking',-1),
               )
-    # datafields = bt.feeds.PandasData.datafields + (['change_percent','turnover_rate','stock_strategy_ranking'])
-
 
 class stockStrategy(bt.Strategy):
     '''多因子选股策略 - 直接指标选股
@@ -72,6 +66,7 @@ class stockStrategy(bt.Strategy):
         """
         主逻辑 
         """
+        # print('next方法每天总资产：',self.datas[0].datetime.date(),self.broker.getvalue())
         hold_now = 0
         if hold_now >= self.hold_n:
             return
@@ -225,8 +220,6 @@ select trade_date,
        high_price as high,
        low_price as low,
        volume,
-       change_percent,
-       turnover_rate,
        stock_strategy_ranking
 from tmp_ads_02
 -- where stock_strategy_ranking <=10
@@ -245,8 +238,6 @@ from tmp_ads_02
     benchmark_df = benchmark_df.set_index(pd.to_datetime(benchmark_df['date'])).sort_index()
     # 缺失值处理：日期对齐时会使得有些交易日的数据为空，所以需要对缺失数据进行填充 要加上pd_df没有的字段
     benchmark_df = benchmark_df[['open', 'close', 'high', 'low', 'volume']]
-    benchmark_df['change_percent'] = 0
-    benchmark_df['turnover_rate'] = 0
     benchmark_df['stock_strategy_ranking'] = 9999
 
     cerebro = bt.Cerebro()
@@ -256,7 +247,7 @@ from tmp_ads_02
 
     # 按股票代码，依次循环传入数据
     for stock in pd_df['stock_code'].unique():
-        df = pd_df.query(f"stock_code=='{stock}'")[['open', 'high', 'low', 'close', 'volume','change_percent','turnover_rate','stock_strategy_ranking']]
+        df = pd_df.query(f"stock_code=='{stock}'")[['open', 'high', 'low', 'close', 'volume','stock_strategy_ranking']]
         # 缺失值处理 每个股票与指数匹配日期
         df = df.reindex_like(benchmark_df)
         # 排序字段要特别填充

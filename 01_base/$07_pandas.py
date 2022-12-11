@@ -214,14 +214,6 @@ def test_multiply():
     a = pd.DataFrame({'A': [1, 2, 3]})
     print('乘法：',a.multiply(2))
 
-def test_cumsum():
-    # 返回DataFrame或Series轴上的累计和
-    s = pd.Series([2, np.nan, 5, -1, 0])
-    print(s.cumsum())
-    # 要在操作中包含NA值，请使用 skipna=False
-    print(s.cumsum(skipna=False))
-    pass
-
 def test_concat():
     df1 = pd.DataFrame([['a', 1], ['b', 2]],
                        columns=['A', 'B'])
@@ -385,6 +377,39 @@ def test_sum():
     # 这可以通过min_count参数来控制。例如，如果您希望空序列的总和为 NaN，请传递min_count=1
     print(pd.Series([], dtype="float64").sum(min_count=1))
 
+def test_cumsum():
+    # 返回DataFrame或Series轴上的累计和 依次给出前1、2、… 、n个数的和
+    s = pd.Series([2, np.nan, 5, -1, 0])
+    print(s.cumsum())
+    # 要在操作中包含NA值，请使用 skipna=False
+    print(s.cumsum(skipna=False))
+
+def test_rolling():
+    '''
+    rolling滑动窗口默认是从右往左，每次滑行并不是区间整块的滑行
+    mean() 计算均值
+    3歩长 个数取一个均值。index 0,1 为NaN，是因为它们前面都不够3个数，等到index2 的时候，它的值是怎么算的呢，就是（index0+index1+index2 ）/3
+    index3 的值就是（ index1+index2+index3）/ 3
+
+    window： 也可以省略不写。表示时间窗的大小，注意有两种形式（int or offset）。如果使用int，则数值表示计算统计量的观测值的数量即向前几个数据。如果是offset类型，表示时间窗的大小。offset详解
+    min_periods：每个窗口最少包含的观测值数量，小于这个值的窗口结果为NA。值可以是int，默认None。offset情况下，默认为1。
+    center: 把窗口的标签设置为居中。布尔型，默认False，居右
+    win_type: 窗口的类型。截取窗的各种函数。字符串类型，默认为None。各种类型
+    on: 可选参数。对于dataframe而言，指定要计算滚动窗口的列。值为列名。
+    axis: int、字符串，默认为0，即对列进行计算
+    closed：定义区间的开闭，支持int类型的window。对于offset类型默认是左开右闭的即默认为right。可以根据情况指定为left both等。
+    '''
+    s = [1, 2, 3, 5, 6, 10, 12, 14, 12, 30]
+    a = pd.Series(s).rolling(window=3).mean()
+    print(a)
+    b = pd.Series(s).rolling(3,min_periods=2).mean()
+    print(b)
+
+    df = pd.DataFrame({"A": [5, 3, 6, 4],
+                       "B": [11, 2, 4, 3]})
+    df['rs'] = df['A'].rolling(window=3,min_periods=1).sum()
+    print(df)
+
 def test_cumprod():
     # 采用cumprod(axis = 0)函数可以找到到目前为止沿索引轴看到的值的累积乘积。
     df = pd.DataFrame({"A": [5, 3, 6, 4],
@@ -403,6 +428,22 @@ def test_cumprod():
                        "C": [4, 3, 8, 5],
                        "D": [5, 4, 2, None]})
     df2.cumprod(axis=0, skipna=True)
+
+def test_pct_change():
+    '''表示当前元素与先前元素的相差百分比，当然指定periods=n,表示当前元素与先前n 个元素的相差百分比
+       第一行会为 NaN
+    '''
+    df = pd.DataFrame({'FR': [4, 4, 4], 'GR': [3, 5, 4], 'IT': [4, 4, 4]},
+                      index=['1980-01-01', '1980-02-01', '1980-03-01'])
+    print(df)
+    # 按行计算 (5-3)/3
+    print(df.pct_change())
+    # 按列计算
+    print(df.pct_change(axis='columns'))
+
+    s = pd.Series([90, 91, 85])
+    s.pct_change(periods=2)  # 表示当前元素与先前两个元素百分比
+    # （85-90）/90=-0.055556
 
 def test_sort_values():
     '''按任一轴上的值排序
@@ -467,6 +508,38 @@ def test_get_dummies():
     print(df_cat)
 
 
+def test_resample():
+    '''一个对常规时间序列数据重新采样和频率转换的便捷的方法
+    D	Day	每日历日
+    B	BusinessDay	每日历日
+    H	Hour	每小时
+    T/min	Minute	每分钟
+    S	Second	每秒钟
+    M	MonthEnd	每月最后一个日历日
+    BM	BusinessMonthEnd	每月最后一个工作日
+    Q-JAN、Q-FRB	QuarterEnd	对于以指定月份结束的年度，每季度最后一月的最后一个日历日
+    A-JAN、A-FEB	YearEnd	每年指定月份的最后一个日历日
+    '''
+    index = pd.date_range('1/1/2000', periods=9, freq='T')
+    series = pd.Series(range(9), index=index)
+    # 降低采样频率为三分钟
+    print(series.resample('3T').sum())
+    # 降低采样频率为三分钟，但是关闭right区间
+    print(series.resample('3T', label='right', closed='right').sum())
+    # 增加采样频率到30秒 select first 5 rows
+    print(series.resample('30S').asfreq()[0:5])
+    # 增加采样频率到30S,使用pad方法填充nan值
+    print(series.resample('30S').pad()[0:5])
+    # 增加采样频率到30S, 使用bfill方法填充nan值。
+    print(series.resample('30S').bfill()[0:5])
+
+
+def test_xxx():
+    pass
+
+def test_xxx():
+    pass
+
 def test_xxx():
     pass
 
@@ -476,5 +549,13 @@ def test_xxx():
 def test_xxx():
     pass
 
+def test_xxx():
+    pass
+
+def test_xxx():
+    pass
+
+def test_xxx():
+    pass
 if __name__ == '__main__':
-    test_concat()
+    test_rolling()

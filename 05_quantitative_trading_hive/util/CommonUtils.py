@@ -153,8 +153,6 @@ def get_concept_plate_group(process_num):
     return code_group
 
 
-
-
 def multiprocessing_func(func, args):
     """
     多进程调用函数
