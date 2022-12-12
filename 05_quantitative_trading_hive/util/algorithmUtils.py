@@ -13,7 +13,7 @@ def max_drawdown(df):
         df[name] 传入收盘价
     '''
     md=((df.cummax()-df)/df.cummax()).max()
-    return round(md,4)*100
+    return round(md*100,2)
 
 def test_xxx():
     pass

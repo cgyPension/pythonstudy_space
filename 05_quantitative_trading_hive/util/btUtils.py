@@ -22,6 +22,7 @@ import dash_table
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
+from plotly.subplots import make_subplots
 # 在linux会识别不了包 所以要加临时搜索目录
 from util import algorithmUtils
 
@@ -76,7 +77,6 @@ def get_analysis_indictor(start,benchmark_df):
 
     Kelly_df = pd.DataFrame(start.analyzers._Kelly.get_analysis())
     # winProb = round(Kelly_df.at[0, '胜率'] * 100, 2)
-    cl_df, cl_an_df = start.analyzers._trade_assets.get_analysis()
 
     # tr_s = pd.Series(start.analyzers._TimeReturn.get_analysis())
     # returns_dict = start.analyzers._Returns.get_analysis()
@@ -87,21 +87,37 @@ def get_analysis_indictor(start,benchmark_df):
     # drawdown_dict = start.analyzers._DrawDown.get_analysis()
     # max_drawdown_rate = round(drawdown_dict['max']['drawdown'],2)
 
-
+    cl_df, cl_an_df = start.analyzers._trade_assets.get_analysis()
     benchmark_df,benchmark_an_df = benchmark_analysis(benchmark_df)
     analyzer_df = pd.concat([cl_an_df, benchmark_an_df], axis=0).reset_index()
+    # 相对收益率
+    xd_df = pd.DataFrame()
+    xd_df['交易日期'] = cl_df['交易日期']
+    xd_df['标签'] = '相对收益率'
+    xd_df['累计收益率'] = np.array(cl_df['累计收益率'])-np.array(benchmark_df['累计收益率'])
+
+    cl_df['标签'] = '策略收益率'
+    benchmark_df['标签'] = '沪深300'
+
+    zx_df = pd.concat([cl_df[['交易日期','标签','累计收益率']],benchmark_df[['交易日期','标签','累计收益率']],xd_df], axis=0).reset_index(drop=True)
+    zx_df['交易日期'] = zx_df['交易日期'].apply(lambda x: pd.to_datetime(x).date())
 
     # cl_df,benchmark_df要合并只取收盘价 资产字段 加个标记字段 本策略 沪深 再合一个新的df 相对收益率  本策略要加一个持仓占比的字段新的df吧由原本那个策略分析器生成
 
-    print(tl_df)
+    # print(tl_df)
     # print(Kelly_df)
-    print('cl_df：',cl_df)
-    print('cl_an_df：',cl_an_df)
+    # print('cl_df:',cl_df)
+    # print('benchmark_df:',benchmark_df)
+    # print('xd_df:',xd_df)
+    print('zx_df:',zx_df)
     # print(analyzer_df)
-    return analyzer_df,tl_df
+    return zx_df,cl_df[['交易日期','持仓比']],analyzer_df,tl_df
 
 def benchmark_analysis(benchmark_df):
-    benchmark_df['今日收益率']=benchmark_df['close'].shift(1)/benchmark_df['close']
+    # print('benchmark_df.index：',type(benchmark_df.index))
+    # benchmark_df['交易日期'] = np.vectorize(lambda s: s.strftime('%Y-%m-%d'))(benchmark_df.index.to_pydatetime())
+    benchmark_df['交易日期'] = np.vectorize(lambda s: pd.to_datetime(s).date())(benchmark_df.index.to_pydatetime())
+    benchmark_df['今日收益率']=benchmark_df['close']/benchmark_df['close'].shift(1)
     benchmark_df['今日收益率']=benchmark_df['今日收益率'].fillna(0)
     benchmark_df['近7天收益率']=benchmark_df['今日收益率'].rolling(window=7,min_periods=1).sum()
     # 这里取 22天交易日
@@ -130,7 +146,10 @@ def benchmark_analysis(benchmark_df):
 
     benchmark_an_df = pd.DataFrame([['沪深300', total_ret, annual_ret,None,max_drawdown_rate,sharperatio,rate_1d,rate_7d,rate_22d,rate_66d]],
                                       columns=['策略','累计收益率', '年化收益率', '胜率','最大回撤%', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率'])
-    return benchmark_df,benchmark_an_df
+
+    # del benchmark_df['index']
+    return benchmark_df.reset_index(drop=True),benchmark_an_df
+    # return benchmark_df.drop(['date'],axis = 1,inplace = True),benchmark_an_df
 
 
 class trade_assets(bt.Analyzer):
@@ -151,7 +170,7 @@ class trade_assets(bt.Analyzer):
     def next(self):
         super(trade_assets, self).next()
         # 这里总资产会自动3位小数四舍五入 与策略的总资产next获取有小小区别 这个持仓占比好像有点问题
-        self.rets.append({'交易日期': self.datas[0].datetime.datetime(), '当前总资产': self.strategy.broker.getvalue(),'持仓比': (self.strategy.broker.getvalue()-self.strategy.broker.getcash())/self.strategy.broker.getvalue()})
+        self.rets.append({'交易日期': pd.to_datetime(self.datas[0].datetime.datetime()).date(), '当前总资产': self.strategy.broker.getvalue(),'持仓比': (self.strategy.broker.getvalue()-self.strategy.broker.getcash())/self.strategy.broker.getvalue()})
 
     def notify_trade(self, trade):
         if trade.status == trade.Closed:
@@ -179,7 +198,7 @@ class trade_assets(bt.Analyzer):
             self.winProb = None
 
         self.cl_df = pd.DataFrame(self.rets)
-        self.cl_df['今日收益率'] = self.cl_df['当前总资产'].shift(1) / self.cl_df['当前总资产']
+        self.cl_df['今日收益率'] = self.cl_df['当前总资产']/self.cl_df['当前总资产'].shift(1)
         self.cl_df['今日收益率'] = self.cl_df['今日收益率'].fillna(0)
         self.cl_df['近7天收益率'] = self.cl_df['今日收益率'].rolling(window=7, min_periods=1).sum()
         # 这里取 22天交易日
@@ -211,22 +230,82 @@ class trade_assets(bt.Analyzer):
                                               '近1月收益率',
                                               '近3月收益率'])
 
-def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash):
+def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash):
     '''回测结果可视化'''
     app = dash.Dash(__name__)
-    # bigqunat策略总览 可不做
     # 收益率走势
-    # 粒度天 每日累计策略收益率 沪深300每日累计收益率 相对收益率 持仓占比
-    # 天 策略 累计收益率
-    #   本策略 33
-    #   300  56
 
-    # 与基准收益统计 特定列 根据规则 选择字体颜色
-    colorscale = [[0, '#EDEDED'], [.5, '#ffffff'], [1, '#EDEDED']]  # 表格中设置3种颜色
-    # 字体条件格式
-    cb_fig_color = np.where(analyzer_df['最大回撤%']<0, '#008000', '#ff0000')
-    # cb_fig = ff.create_table(analyzer_df.drop(['index'],axis = 1), colorscale=colorscale,font_colors=['#525252'])
-    cb_fig = ff.create_table(analyzer_df.drop(['index'],axis = 1), colorscale=colorscale,font_colors=['#525252'])
+    # '交易日期', '标签', '累计收益率'
+    # 剔除不交易日期
+    dt_all = pd.date_range(start_date,end_date)
+    dt_all = [pd.to_datetime(d).date() for d in dt_all]
+    dt_breaks = list(set(dt_all) - set(zx_df['交易日期']))
+
+    hovertext = []  # 添加悬停信息
+    # for date in zx_df['交易日期'].unique(): # <br>表示
+    #     hovertext.append('日期: ' + str(date) +
+    #                      '<br>策略收益率: ' +str(zx_df.query('标签=="策略收益率" & 交易日期 == @date')['累计收益率'])+
+    #                      '<br>沪深300: ' +str(zx_df.query('标签=="沪深300" & 交易日期 == @date')['累计收益率'])+
+    #                      '<br>相对收益率: ' +str(zx_df.query('标签=="相对收益率" & 交易日期 == @date')['累计收益率'])
+    #                      )
+    # for date in zx_df['交易日期'].unique():
+    #     hovertext.append({'交易日期': date,
+    #                       '策略收益率': zx_df.query('标签=="策略收益率" & 交易日期 == @date')['累计收益率'],
+    #                        '沪深300': zx_df.query('标签=="沪深300" & 交易日期 == @date')['累计收益率'],
+    #                        '相对收益率': zx_df.query('标签=="相对收益率" & 交易日期 == @date')['累计收益率']
+    #                       })
+
+
+
+
+    zx_fig = px.line(
+        zx_df,  # 绘图数据
+        x=zx_df['交易日期'],  # x轴标签
+        y=zx_df['累计收益率'],
+        color='标签',
+        color_discrete_sequence=['#FF0000', '#2776B6', '#8F4E4F'],
+        hover_data={'标签': False}
+    )
+
+    # zx_fig.add_trace(go.Scatter(x=zx_df.query('标签=="策略收益率"')['交易日期'], y=zx_df.query('标签=="策略收益率"')['累计收益率'],mode='lines',marker_color='#FF0000', name='策略收益率'))
+    # zx_fig.add_trace(go.Scatter(x=zx_df.query('标签=="沪深300"')['交易日期'], y=zx_df.query('标签=="沪深300"')['累计收益率'],mode='lines',marker_color='#7ABDFF', name='沪深300'))
+    # zx_fig.add_trace(go.Scatter(x=zx_df.query('标签=="相对收益率"')['交易日期'], y=zx_df.query('标签=="相对收益率"')['累计收益率'],mode='lines',marker_color='#333333', name='相对收益率'))
+    zx_fig.update_xaxes(
+        dtick="D1",
+        tickformat='%Y-%m-%d',  # 日期显示模式
+        ticklabelmode='instant',  # ticklabelmode模式：居中 'instant', 'period'
+        # rangeslider_visible=True, #开启范围滑块
+        rangebreaks=[dict(values=dt_breaks)],# 去除休市的日期，保持连续
+        rangeselector=dict(
+            # 增加固定范围选择
+            buttons=list([
+                dict(count=1, label='1M', step='month', stepmode='backward'),
+                dict(count=6, label='6M', step='month', stepmode='backward'),
+                dict(count=1, label='1Y', step='year', stepmode='backward'),
+                dict(count=1, label='YTD', step='year', stepmode='todate'),
+                dict(step='all')]))
+    )
+    # Do not show OHLC's rangeslider plot
+    # zx_fig.update(layout_xaxis_rangeslider_visible=False)
+    zx_fig.update_layout(xaxis_title=None, yaxis_title=None, legend_title_text=None,legend=dict(orientation="h", yanchor="bottom",y=1.02,xanchor="right",x=1))
+
+    # 绘制持仓比
+    cc_fig = px.line(
+        cc_df,  # 绘图数据
+        x=cc_df['交易日期'],  # x轴标签
+        y=cc_df['持仓比'],
+        hover_data={'交易日期': "|%Y-%m-%d"},  # 悬停信息设置
+        color_discrete_sequence=['#66FF99']
+    )
+    cc_fig.update_xaxes(tickformat='%Y-%m-%d',rangebreaks=[dict(values=dt_breaks)],visible=False, fixedrange=True)
+    cc_fig.update_yaxes(fixedrange=True)
+    cc_fig.update_layout(xaxis_title=None,margin=dict(t=10,l=10,b=10,r=10), width=1447,height=80)
+
+    # cc_fig = make_subplots(rows=2, cols=1, shared_xaxes=True,vertical_spacing=0.02, subplot_titles=('', '持仓比'),row_width=[0.2, 0.7])
+    # cc_fig.add_trace(go.Line(x=cc_df['交易日期'], y=cc_df['持仓比'], showlegend=True), row=2, col=1)
+    # cc_fig.update_xaxes(dtick="D1",tickformat='%Y-%m-%d',rangebreaks=[dict(values=dt_breaks)])
+    # cc_fig.update_layout(xaxis_title=None, yaxis_title=None, legend_title_text=None,legend=dict(orientation="h", yanchor="bottom",y=1.02,xanchor="right",x=1))
+
 
     # todo 交易详情 分页
     tl_df.sort_index(ascending=False,inplace=True)
@@ -238,8 +317,10 @@ def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_c
             html.Div(
                 children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}    持股周期：2天     买入规则：排名<=3'.format(start_date,end_date,start_cash,end_cash),
                 style=dict(textAlign='center', color='black')),
-            html.H4('收益统计'),
-            # dcc.Graph(figure=cb_fig),
+            html.H4('累计收益率走势'),
+            dcc.Graph(figure=zx_fig, style={'margin-top': '-22px'}),
+            dcc.Graph(figure=cc_fig, style={'margin-top': '-62px'}),
+            html.H4(children='收益统计', style={'margin-top': '-2px'}),
             dash_table.DataTable(
                 id='收益统计table',
                 data=analyzer_df.to_dict('records'),
@@ -332,7 +413,10 @@ def run_cerebro_dash(analyzer_df,tl_df,strategy_name,start_date,end_date,start_c
                             }
                         )
                     )
-                ]
+                ],
+                style={
+                    'margin-top': '-15px'
+                }
             )
         ]
     )

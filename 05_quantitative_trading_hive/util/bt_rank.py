@@ -79,7 +79,7 @@ class stockStrategy(bt.Strategy):
         for data in self.datas:
             # 6分1仓位
             # money = self.broker.get_cash() / self.hold_n*2 - hold_now
-            money = self.broker.getvalue() / 6
+            money = self.broker.getvalue() / (self.hold_n*(self.hold_day+1))
             #没有持仓，则可以在下一交易日开盘价买 不要在股票数据最后周期进行买入
             if self.getposition(data).size == 0 and data.stock_strategy_ranking[0] <= self.hold_n and data.datetime.date()<=self.end_date-datetime.timedelta(self.hold_day+1):
                     # 如果可用现金小于成本则跳过这个循环
@@ -185,56 +185,12 @@ class stockStrategy(bt.Strategy):
     #     self.log("期末总资金 %s" % (self.broker.getvalue()), do_print=True)
 
 
-def hc(stockStrategy,start_date,end_date,start_cash=100000, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
+def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',start_cash=100000, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
     appName = os.path.basename(__file__)
-    # 本地模式
-    spark = get_spark(appName)
-    start_date, end_date = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date()
-
-    # 导入到bt 不能有str类型的字段
-    sql = """
-with tmp_ads_01 as (
-select *,
-       dense_rank()over(partition by td order by total_market_value) as dr_tmv,
-       dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
-       dense_rank()over(partition by td order by pe_ttm) as dr_pe_ttm
-from stock.dwd_stock_quotes_di
-where td between '%s' and '%s'
-        and stock_code in ('sh601988','sz300364','sz300659','sh603709','sz300981')
-),
-tmp_ads_02 as (
-               select *,
-                      '小市值+换手率+市盈率TTM' as stock_strategy_name,
-                      dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume) as stock_strategy_ranking
-               from tmp_ads_01
-               where suspension_time is null
-                       or estimated_resumption_time < date_add('%s',1)
---                        or pe_ttm is null
---                        or pe_ttm <=30
-               order by stock_strategy_ranking
-)
-select trade_date,
-       stock_code||'_'||stock_name as stock_code,
-       open_price as open,
-       close_price as close,
-       high_price as high,
-       low_price as low,
-       volume,
-       stock_strategy_ranking
-from tmp_ads_02
--- where stock_strategy_ranking <=10
-    """ % (start_date,end_date,end_date)
-
-    # 读取数据
-    spark_df = spark.sql(sql)
-    pd_df = spark_df.toPandas()
-    # 将trade_date设置成index
-    pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
-
 
     # 添加业绩基准时，需要事先将业绩基准的数据添加给 cerebro 沪深300 指数字段是 date open close high low volume
     benchmark_df = ak.stock_zh_index_daily(symbol=benchmark_code)
-    benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date)]
+    benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date_n)]
     benchmark_df = benchmark_df.set_index(pd.to_datetime(benchmark_df['date'])).sort_index()
     # 缺失值处理：日期对齐时会使得有些交易日的数据为空，所以需要对缺失数据进行填充 要加上pd_df没有的字段
     benchmark_df = benchmark_df[['open', 'close', 'high', 'low', 'volume']]
@@ -242,7 +198,7 @@ from tmp_ads_02
 
     cerebro = bt.Cerebro()
     # banchdata = MyCustomdata(dataname=benchmark_df)
-    # cerebro.adddata(banchdata, name='沪深300')
+    # cerebro.adddata(banchdata, name='沪深300',fromdate=pd.to_datetime(start_date), todate=pd.to_datetime(end_date))
     # cerebro.addobserver(bt.observers.Benchmark, data=banchdata)
 
     # 按股票代码，依次循环传入数据
@@ -260,7 +216,10 @@ from tmp_ads_02
         #                            fromdate=pd.to_datetime(start_date),
         #                            todate=pd.to_datetime(end_date),
         #                            timeframe=bt.TimeFrame.Days)  # 将数据的时间周期设置为日
-        datafeed = MyCustomdata(dataname=df)
+        datafeed = MyCustomdata(dataname=df,
+                                fromdate=pd.to_datetime(start_date),
+                                todate=pd.to_datetime(end_date)
+                                )
         # 将数据加载至回测系统
         # 通过 name 实现数据集与股票的一一对应
         cerebro.adddata(datafeed, name=stock)
@@ -294,8 +253,8 @@ from tmp_ads_02
     print("期末总资金: %s" % cerebro.broker.getvalue())
     start = results[0]
     # 得到分析指标数据
-    analyzer_df,tl_df = btUtils.get_analysis_indictor(start,benchmark_df)
-    btUtils.run_cerebro_dash(analyzer_df,tl_df,'小市值+市盈率TTM+换手率',start_date,end_date,start_cash,end_cash)
+    zx_df,cc_df,analyzer_df,tl_df = btUtils.get_analysis_indictor(start,benchmark_df[benchmark_df.index <= pd.to_datetime(end_date)])
+    btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash)
     # 可视化回测结果
     # cerebro.plot()
 

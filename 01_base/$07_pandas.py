@@ -313,7 +313,7 @@ def test_reindex_like():
                         [35.1, 'medium']],
                        columns=['temp_celsius', 'windspeed'],
                        index=pd.DatetimeIndex(['2014-02-12', '2014-02-13',
-                                               '2014-02-15']))
+                                               '2014-02-19']))
     print(df2)
 
     # 未匹配的索引被填充为NaN值
@@ -534,7 +534,24 @@ def test_resample():
     print(series.resample('30S').bfill()[0:5])
 
 
-def test_xxx():
+def test_query():
+    '''使用df.query()方法筛选DataFrame数据'''
+    df = pd.DataFrame({'name': ['jgf', 'sf', 'sg', 'ljh'],
+                      'xb': ['男','女','男','女'],
+                      'age': [4, 3, 2, 1],
+                      'weight': [2, 4, 10, 1]})
+
+    # 等价于 df[df.age > df.weight]
+    print(df.query('age > weight'))
+    # 通过变量筛选
+    v1 = 'sf'
+    print(df.query('name==@v1'))
+    # 列表筛选 in not in
+    print(df.query('name in ["sg","jgf"]'))
+
+    print(df.query('xb=="男" & weight > 8'))
+
+
     pass
 
 def test_xxx():
@@ -558,4 +575,4 @@ def test_xxx():
 def test_xxx():
     pass
 if __name__ == '__main__':
-    test_rolling()
+    test_reindex_like()

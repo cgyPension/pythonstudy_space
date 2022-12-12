@@ -65,10 +65,21 @@ if __name__ == '__main__':
     # print(type(cb_fig_color))
     # print(type(cb_fig_color2))
     # print(type(df['A'].iloc[-1]))
-    start_date, end_date = pd.to_datetime('20221204').date(),pd.to_datetime('20221209').date()
-    df = pd.DataFrame({"A": [5, 3, 6, 4]})
-    # print(df/df.iloc[0])
-    print(bt.TimeFrame.Years)
-    print(type(bt.TimeFrame.Days))
+    start_date, end_date = pd.to_datetime('20221201').date(),pd.to_datetime('20221211').date()
+    # df = pd.DataFrame({"A": [5, 3, 6, 4]})
+    # # print(df/df.iloc[0])
+    # print(bt.TimeFrame.Years)
+    # print(type(bt.TimeFrame.Days))
+
+    end_date2 = pd.to_datetime(end_date + datetime.timedelta(5)).date()
+    print(end_date2)
+
+
+    benchmark_df = ak.stock_zh_index_daily(symbol='sh000300')
+    benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date2)]
+    benchmark_df = benchmark_df.set_index(pd.to_datetime(benchmark_df['date'])).sort_index()
+
+    pd.date_range(start_date, end_date)
+    print(benchmark_df[benchmark_df.index <= pd.to_datetime(end_date)])
     # print(df2.reindex_like(df1,method='backfill'))
 
