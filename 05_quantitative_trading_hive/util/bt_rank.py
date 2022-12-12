@@ -50,17 +50,6 @@ class stockStrategy(bt.Strategy):
         self.hold_n=hold_n
         self.holdlist={}
 
-        # 0号是指数，不进入选股池，从1号往后进入股票池
-        # self.stocks = self.datas[1:]
-        # 循环计算每只股票的指标 排除第一个 沪深300指数
-        # todo stock_strategy_ranking 是自己在sql里面计算好的排序字段
-        # self.buy_sig = {x: self.getdatabyname(x).stock_strategy_ranking <= self.p.ranking for x in self.getdatanames()[1:]}
-        # print('self.buy_sig：',self.buy_sig.values(),type(self.buy_sig.values()))
-        # for i, d in enumerate(self.stocks):
-        #     self.buy_sig =
-
-        # print('self.lines.getlinealiases()：',self.datas[0].lines.getlinealiases())
-
     def next(self):
         '''在这里根据交易信号进行买卖下单操作'''
         """
@@ -71,11 +60,9 @@ class stockStrategy(bt.Strategy):
         if hold_now >= self.hold_n:
             return
         # 回测如果是最后一天，则不进行买卖
-        if self.datas[0].datetime.date() == self.end_date:
-            return
+        # if self.datas[0].datetime.date() == self.end_date:
+        #     return
 
-        # 基准不进行买卖 不传入基准了
-        # for data in self.datas[1:]:
         for data in self.datas:
             # 6分1仓位
             # money = self.broker.get_cash() / self.hold_n*2 - hold_now
@@ -91,12 +78,6 @@ class stockStrategy(bt.Strategy):
                     hold_now = hold_now + 1
             # 如果有持仓 在下一交易日收盘价 平仓
             elif self.getposition(data).size > 0 and self.holdlist[data._name] == self.hold_day:
-            # elif self.getposition(data)>0:
-                # self.close(data=d)
-                # elf.getposition(data)>0 这里应该设置成当日？或者直接改成else卖出
-                # self.close(data=data,exectype=bt.Order.Close)
-                # 应该以当日收盘价卖出
-                # self.order = self.sell()
                 self.order = self.sell(data=data, size=self.getposition(data).size,exectype=bt.Order.Close)
                 # 卖出了后再重新计算该字典
                 del self.holdlist[data._name]
@@ -108,9 +89,7 @@ class stockStrategy(bt.Strategy):
         print('prenext执行 数据没有对齐:', self.datetime.date(), self.getdatabyname(self.data._name), self.getdatabyname(self.data._name).close[0])
 
     def log(self, txt, dt=None, do_print=False):
-        """
-        可选，构建策略打印日志的函数：可用于打印订单记录或交易记录等
-        """
+        """构建策略打印日志的函数：可用于打印订单记录或交易记录等"""
         # 以第一个数据data0，即指数作为时间基准
         if do_print:
             dt = dt or self.datas[0].datetime.date()
@@ -118,11 +97,8 @@ class stockStrategy(bt.Strategy):
 
 
     def notify_order(self, order):
-        """
-        通知订单信息
-        """
-        order_status = ['Created', 'Submitted', 'Accepted', 'Partial',
-                        'Completed', 'Canceled', 'Expired', 'Margin', 'Rejected']
+        """通知订单信息"""
+        order_status = ['Created', 'Submitted', 'Accepted', 'Partial','Completed', 'Canceled', 'Expired', 'Margin', 'Rejected']
         # 未被处理的订单 order 为 submitted/accepted
         if order.status in [order.Submitted, order.Accepted]:
             # self.log('未被处理的订单：ref:%.0f, name: %s, Order: %s' % (order.ref,
@@ -159,9 +135,7 @@ class stockStrategy(bt.Strategy):
         self.order = None
 
     def notify_trade(self, trade):
-        """
-        通知交易信息
-        """
+        """通知交易信息"""
         # if not trade.isclosed:
         #     return
         # self.log(f"策略收益：毛收益 {trade.pnl:.2f}, 净收益 {trade.pnlcomm:.2f}")
@@ -179,15 +153,11 @@ class stockStrategy(bt.Strategy):
                 trade.getdataname(), trade.size, trade.price))
 
     # def stop(self):
-    #     """
-    #     回测结束后输出结果
-    #     """
+    #     """回测结束后输出结果"""
     #     self.log("期末总资金 %s" % (self.broker.getvalue()), do_print=True)
 
 
 def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',start_cash=100000, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
-    appName = os.path.basename(__file__)
-
     # 添加业绩基准时，需要事先将业绩基准的数据添加给 cerebro 沪深300 指数字段是 date open close high low volume
     benchmark_df = ak.stock_zh_index_daily(symbol=benchmark_code)
     benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date_n)]
@@ -220,8 +190,7 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
                                 fromdate=pd.to_datetime(start_date),
                                 todate=pd.to_datetime(end_date)
                                 )
-        # 将数据加载至回测系统
-        # 通过 name 实现数据集与股票的一一对应
+        # 将数据加载至回测系统 通过 name 实现数据集与股票的一一对应
         cerebro.adddata(datafeed, name=stock)
         # print(f"{stock} Done !")
 
@@ -245,44 +214,19 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
     # 参数优化器 只有指标哪些在bt计算才好用，比如比较同一个策略 不同的均线 最终的收益率
     # cerebro.optstrategy(TestStrategy, period1=range(5, 25, 5), period2=range(10, 41, 10))
 
-    print("期初总资金: %s" % cerebro.broker.getvalue())
-    # 必须放在运行前
-    # cerebro.addwriter(bt.WriterFile, csv=True, out=r'交易数据.csv')
+    # print("期初总资金: %s" % cerebro.broker.getvalue())
     results = cerebro.run(tradehistory=True) # 启动回测
     end_cash = round(cerebro.broker.getvalue(),2)
-    print("期末总资金: %s" % cerebro.broker.getvalue())
+    # print("期末总资金: %s" % cerebro.broker.getvalue())
     start = results[0]
     # 得到分析指标数据
     zx_df,cc_df,analyzer_df,tl_df = btUtils.get_analysis_indictor(start,benchmark_df[benchmark_df.index <= pd.to_datetime(end_date)])
-    btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash)
     # 可视化回测结果
-    # cerebro.plot()
-
-    ######### 注意 #########
-    # PyFolio 分析器返回的收益也是月度收益，但是绘制的各种收益分析图形会有问题，有些图绘制不出来
+    btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash)
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py
-# nohup bt_rank.py >> my.log 2>&1 &
-# python bt_rank.py all
 if __name__ == '__main__':
-    # start_date = date.today().strftime('%Y%m%d')
-    # end_date = start_date
-    # if len(sys.argv) == 1:
-    #     print("请携带一个参数 all update 更新要输入开启日期 结束日期 不输入则默认当天")
-    # elif len(sys.argv) == 2:
-    #     run_type = sys.argv[1]
-    #     if run_type == 'all':
-    #         start_date = '20210101'
-    #         end_date
-    #     else:
-    #         start_date
-    #         end_date
-    # elif len(sys.argv) == 4:
-    #     run_type = sys.argv[1]
-    #     start_date = sys.argv[2]
-    #     end_date = sys.argv[3]
-
     start_date = '20221101'
     end_date = '20221118'
     start_time = time.time()

@@ -59,34 +59,14 @@ def add_ananlsis_indictor(cerebro):
       backtrader默认是美股一年252个交易日
       用官方的分析器成本更高
     '''
-    # cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='_TimeReturn')  # 返回收益率时序
-    # cerebro.addanalyzer(bt.analyzers.Returns, _name='_Returns', tann=250) # 计算年化收益：日度收益
-    # cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown')# 计算最大回撤相关指标
-    # 计算年化夏普比率
-    # cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio', timeframe=bt.TimeFrame.Days, factor=250,annualize=True,riskfreerate=0.03)
     # 添加自定义的分析指标
-    # cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='_TradeAnalyzer')
+    # cerebro.addanalyzer(Kelly, _name='_Kelly')
     cerebro.addanalyzer(trade_list, _name='_tradelist')
     cerebro.addanalyzer(trade_assets, _name='_trade_assets')
-    cerebro.addanalyzer(Kelly, _name='_Kelly')
-
-
 
 def get_analysis_indictor(start,benchmark_df):
     tl_df = pd.DataFrame(start.analyzers._tradelist.get_analysis())
-
-    Kelly_df = pd.DataFrame(start.analyzers._Kelly.get_analysis())
-    # winProb = round(Kelly_df.at[0, '胜率'] * 100, 2)
-
-    # tr_s = pd.Series(start.analyzers._TimeReturn.get_analysis())
-    # returns_dict = start.analyzers._Returns.get_analysis()
-    # rnorm100_rate = round(returns_dict['rnorm100'],2)
-    # 夏普比率 确实是空
-    # sharpe_dict = start.analyzers._SharpeRatio.get_analysis()
-    # sharpe_ratio = round(sharpe_dict['sharperatio'],2)
-    # drawdown_dict = start.analyzers._DrawDown.get_analysis()
-    # max_drawdown_rate = round(drawdown_dict['max']['drawdown'],2)
-
+    # Kelly_df = pd.DataFrame(start.analyzers._Kelly.get_analysis())
     cl_df, cl_an_df = start.analyzers._trade_assets.get_analysis()
     benchmark_df,benchmark_an_df = benchmark_analysis(benchmark_df)
     analyzer_df = pd.concat([cl_an_df, benchmark_an_df], axis=0).reset_index()
@@ -102,20 +82,10 @@ def get_analysis_indictor(start,benchmark_df):
     zx_df = pd.concat([cl_df[['交易日期','标签','累计收益率']],benchmark_df[['交易日期','标签','累计收益率']],xd_df], axis=0).reset_index(drop=True)
     zx_df['交易日期'] = zx_df['交易日期'].apply(lambda x: pd.to_datetime(x).date())
 
-    # cl_df,benchmark_df要合并只取收盘价 资产字段 加个标记字段 本策略 沪深 再合一个新的df 相对收益率  本策略要加一个持仓占比的字段新的df吧由原本那个策略分析器生成
-
-    # print(tl_df)
-    # print(Kelly_df)
-    # print('cl_df:',cl_df)
-    # print('benchmark_df:',benchmark_df)
-    # print('xd_df:',xd_df)
-    print('zx_df:',zx_df)
-    # print(analyzer_df)
+    # print('zx_df:',zx_df)
     return zx_df,cl_df[['交易日期','持仓比']],analyzer_df,tl_df
 
 def benchmark_analysis(benchmark_df):
-    # print('benchmark_df.index：',type(benchmark_df.index))
-    # benchmark_df['交易日期'] = np.vectorize(lambda s: s.strftime('%Y-%m-%d'))(benchmark_df.index.to_pydatetime())
     benchmark_df['交易日期'] = np.vectorize(lambda s: pd.to_datetime(s).date())(benchmark_df.index.to_pydatetime())
     benchmark_df['今日收益率']=benchmark_df['close']/benchmark_df['close'].shift(1)
     benchmark_df['今日收益率']=benchmark_df['今日收益率'].fillna(0)
@@ -143,13 +113,10 @@ def benchmark_analysis(benchmark_df):
     exReturn = benchmark_df['今日收益率'] - 0.03 / 250
     sharperatio = round(np.sqrt(len(exReturn)) * exReturn.mean() / exReturn.std(),2)
 
-
     benchmark_an_df = pd.DataFrame([['沪深300', total_ret, annual_ret,None,max_drawdown_rate,sharperatio,rate_1d,rate_7d,rate_22d,rate_66d]],
                                       columns=['策略','累计收益率', '年化收益率', '胜率','最大回撤%', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率'])
 
-    # del benchmark_df['index']
     return benchmark_df.reset_index(drop=True),benchmark_an_df
-    # return benchmark_df.drop(['date'],axis = 1,inplace = True),benchmark_an_df
 
 
 class trade_assets(bt.Analyzer):
@@ -255,9 +222,6 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
     #                        '相对收益率': zx_df.query('标签=="相对收益率" & 交易日期 == @date')['累计收益率']
     #                       })
 
-
-
-
     zx_fig = px.line(
         zx_df,  # 绘图数据
         x=zx_df['交易日期'],  # x轴标签
@@ -305,7 +269,6 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
     # cc_fig.add_trace(go.Line(x=cc_df['交易日期'], y=cc_df['持仓比'], showlegend=True), row=2, col=1)
     # cc_fig.update_xaxes(dtick="D1",tickformat='%Y-%m-%d',rangebreaks=[dict(values=dt_breaks)])
     # cc_fig.update_layout(xaxis_title=None, yaxis_title=None, legend_title_text=None,legend=dict(orientation="h", yanchor="bottom",y=1.02,xanchor="right",x=1))
-
 
     # todo 交易详情 分页
     tl_df.sort_index(ascending=False,inplace=True)
@@ -393,7 +356,6 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
                                     'backgroundColor': 'rgb(220, 220, 220)',
                                 }
                             ],
-                            # export_format='csv',
                             export_format='xlsx',
                             style_header={
                                 'font-family': 'Times New Romer',
@@ -548,7 +510,6 @@ R: 盈亏比，即平均盈利除以平均损失
                 numberOfTrades = numberOfWins + numberOfLosses  # 总交易次数
                 winProb = numberOfWins / numberOfTrades  # 计算胜率
                 inverse_winProb = 1 - winProb
-
                 # 计算凯利比率，即每次交易投入资金占总资金 占 总资金 的最优比率
                 kellyPercent = winProb - (inverse_winProb / winLossRatio)
                 self.rets.append({'凯利比率': kellyPercent,'胜率': winProb,'盈利次数': numberOfWins, '亏损次数': numberOfLosses,'总交易次数': numberOfTrades})

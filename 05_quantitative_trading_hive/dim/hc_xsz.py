@@ -42,7 +42,6 @@ if __name__ == '__main__':
     # end_date = '20221118'
 
     appName = os.path.basename(__file__)
-    # 本地模式
     spark = get_spark(appName)
     start_date, end_date = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date()
 
@@ -88,7 +87,7 @@ if __name__ == '__main__':
            )
     select nvl(t1.trade_date,t2.trade_date) as trade_date,
            nvl(t1.stock_code||'_'||t1.stock_name,t2.stock_code||'_'||t2.stock_name) as stock_code,
-           nvl(t1.open_price,t2.open_price,) as open,
+           nvl(t1.open_price,t2.open_price) as open,
            nvl(t1.close_price,t2.close_price) as close,
            nvl(t1.high_price,t2.high_price) as high,
            nvl(t1.low_price,t2.low_price) as low,
@@ -109,6 +108,6 @@ if __name__ == '__main__':
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
 
     start_time = time.time()
-    bt_rank.hc(bt_rank.stockStrategy,start_date,end_date,end_date_n=end_date_5,strategy_name='xxx')
+    bt_rank.hc(pd_df,bt_rank.stockStrategy,start_date,end_date,end_date_n=end_date_5,strategy_name='xxx')
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))
