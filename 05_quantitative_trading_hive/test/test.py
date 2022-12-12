@@ -71,15 +71,10 @@ if __name__ == '__main__':
     # print(bt.TimeFrame.Years)
     # print(type(bt.TimeFrame.Days))
 
-    end_date2 = pd.to_datetime(end_date + datetime.timedelta(5)).date()
-    print(end_date2)
 
 
-    benchmark_df = ak.stock_zh_index_daily(symbol='sh000300')
-    benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date2)]
-    benchmark_df = benchmark_df.set_index(pd.to_datetime(benchmark_df['date'])).sort_index()
 
-    pd.date_range(start_date, end_date)
-    print(benchmark_df[benchmark_df.index <= pd.to_datetime(end_date)])
+
+
     # print(df2.reindex_like(df1,method='backfill'))
 

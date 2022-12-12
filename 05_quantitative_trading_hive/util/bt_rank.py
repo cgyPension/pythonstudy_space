@@ -180,6 +180,7 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
         df.loc[:, ['stock_strategy_ranking']] = df.loc[:, ['stock_strategy_ranking']].fillna(9999)
         # 用后面下一日非缺失的填充 pad为前一日
         df.fillna(method='bfill', inplace=True)
+        df.fillna(0, inplace=True)
         # 通过 name 实现数据集与股票的一一对应
         # 增加字段 规范化数据格式
         # datafeed = MyCustomdata(dataname=df,
@@ -216,12 +217,15 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
 
     # print("期初总资金: %s" % cerebro.broker.getvalue())
     results = cerebro.run(tradehistory=True) # 启动回测
+    print('{} 回测系统 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     end_cash = round(cerebro.broker.getvalue(),2)
     # print("期末总资金: %s" % cerebro.broker.getvalue())
     start = results[0]
     # 得到分析指标数据
     zx_df,cc_df,analyzer_df,tl_df = btUtils.get_analysis_indictor(start,benchmark_df[benchmark_df.index <= pd.to_datetime(end_date)])
+    print('{} 分析器 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     # 可视化回测结果
+    print('{} 开始可视化!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash)
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py

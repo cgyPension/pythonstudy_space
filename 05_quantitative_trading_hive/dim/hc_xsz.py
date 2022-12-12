@@ -42,9 +42,9 @@ if __name__ == '__main__':
     # end_date = '20221118'
 
     appName = os.path.basename(__file__)
+    start_time = time.time()
     spark = get_spark(appName)
     start_date, end_date = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date()
-
     # 为了向后补数据有值填充
     end_date_5 = pd.to_datetime(end_date + datetime.timedelta(5)).date()
     # 导入到bt 不能有str类型的字段
@@ -106,8 +106,8 @@ if __name__ == '__main__':
     pd_df = spark_df.toPandas()
     # 将trade_date设置成index
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
+    print('{} 获取数据 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-    start_time = time.time()
     bt_rank.hc(pd_df,bt_rank.stockStrategy,start_date,end_date,end_date_n=end_date_5,strategy_name='xxx')
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))
