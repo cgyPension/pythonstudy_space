@@ -18,8 +18,9 @@ pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/hc_xsz.py update 20210101 20221201
+
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/hc_xsz.py update 20210101 20221201
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/hc_xsz.py update 20210101 20221201
 if __name__ == '__main__':
     start_date = date.today().strftime('%Y%m%d')
     end_date = start_date
