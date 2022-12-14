@@ -92,8 +92,8 @@ def get_n_stock_price(stock_code, start_date, end_date):
            stock_code,
            close_price
     from stock.dwd_stock_quotes_di
-    where td between '2022-11-28' and '2022-11-30'
-        and stock_code in ('sh600006','sz300506','sh600018','sz300516','sh600056','sz300517','sh600077')
+    where td between '2021-01-01' and '2022-11-30'
+        and stock_code in ('sh600006','sz300506','sh600018')
     """
     # % (start_date, end_date, stock_code)
     # sparksql in 里面不能写子查询 要算所有都转只能用pivot的算子 行转列
@@ -174,8 +174,6 @@ def work2(stock_code, start_date, end_date):
         rangeslider_visible=True #开启范围滑块
     )
 
-
-
     app.layout = html.Div(
         [
             html.H1('股票走势图'),
@@ -184,8 +182,6 @@ def work2(stock_code, start_date, end_date):
         ]
     )
 
-    # fig.show()
-    # py.plot(fig, filename='filename.html')
     print('{}：执行完毕！！！'.format(appName))
 
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/bak/stock_plotly_k.py
@@ -193,11 +189,6 @@ if __name__ == '__main__':
     work2('sz000681','20220101', '20221130')
     # host设置为0000 为了主机能访问 虚拟机的web服务
     # http://hadoop102:8000/
-    app.run(host='0.0.0.0',port='8000',debug=True)
+    # app.run(host='0.0.0.0',port='7777',debug=True)
+    app.run(host='0.0.0.0',port='7777')
     # df = get_n_stock_price('sz000681','20220101', '20221130')
-    # print(df)
-    # print(df.index)
-    # print(df.columns)
-    #
-    # print(df.index.values)
-    # print(df.columns.values)

@@ -34,7 +34,7 @@ def get_spark(appName):
         .config('spark.debug.maxToStringFields', '200') \
         .config('spark.sql.debug.maxToStringFields', '200') \
         .config('spark.rpc.message.maxSize', '1024') \
-        .config('spark.driver.maxResultSize', '3g') \
+        .config('spark.driver.memory', '6g') \
         .config('spark.executor.memory' ,"3g") \
         .config('spark.default.parallelism', 300) \
         .config('spark.sql.sources.partitionOverwriteMode', 'dynamic') \
@@ -156,24 +156,19 @@ def get_concept_plate_group(process_num):
 def multiprocessing_func(func, args):
     """
     多进程调用函数
-
     :param func: 函数名
     :param args: func的参数，类型为元组，第0个元素为进程数，第1个元素为股票代码列表
     :return: 包含各子进程返回对象的列表
     """
-
     # 用于保存各子进程返回对象的列表
     results = []
-
     # 创建进程池
     with multiprocessing.Pool(processes=args[0]) as pool:
         # 多进程异步计算
         for codes in get_code_group(args[0], args[1])[0]:
             results.append(pool.apply_async(func, args=(codes, *args[2:],)))
-
         # 阻止后续任务提交到进程池
         pool.close()
-
         # 等待所有进程结束
         pool.join()
 

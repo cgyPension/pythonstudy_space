@@ -1,9 +1,9 @@
 import pandas as pd
-from factors import data
-from factors import factors
-from factors import model
-from factors import backtest
-from factors.strategies import *
+from fin import data
+from fin import factors
+from fin import model
+from fin import backtest
+from fin.strategies import *
 
 
 df=data.get_all_index_data()

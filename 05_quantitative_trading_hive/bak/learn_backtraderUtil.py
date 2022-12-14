@@ -397,6 +397,7 @@ from tmp_ads_02
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='_SharpeRatio', timeframe=bt.TimeFrame.Days, annualize=True,riskfreerate=0)  # 计算夏普比率
     cerebro.addanalyzer(bt.analyzers.SharpeRatio_A, _name='_SharpeRatio_A')
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='_DrawDown')  # 计算最大回撤相关指标
+    cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='_TradeAnalyzer')  # 计算最大回撤相关指标
 
     # 参数优化器 只有指标哪些在bt计算才好用，比如比较同一个策略 不同的均线 最终的收益率
     # cerebro.optstrategy(TestStrategy, period1=range(5, 25, 5), period2=range(10, 41, 10))

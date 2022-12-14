@@ -19,6 +19,7 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
 import dash_table
+from flask_caching import Cache
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
@@ -36,6 +37,19 @@ pd.set_option('display.unicode.east_asian_width', True)
 plt.rcParams['font.sans-serif'] = ['FangSong']  # 中文仿宋
 plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
 plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+
+def get_code_datafeed_group(code_list,process_num=min(50,int(os.cpu_count() / (1 - 0.9)))):
+    """
+    获取代码分组，用于多进程计算，每个进程处理一组股票
+    :param process_num: 进程数 多数调用均使用默认值为61
+    :param stock_codes: 待处理的股票代码
+    :return: 分组后的股票代码列表，列表的每个元素为一组股票代码的列表
+    """
+    code_group = [[] for i in range(process_num)]
+    # 按余数为每个分组分配股票
+    for index, code in enumerate(code_list):
+        code_group[index % process_num].append(code)
+    return code_group
 
 class StockCommission(bt.CommInfoBase):
     '''自定义股票交易费用'''
@@ -59,6 +73,7 @@ def add_ananlsis_indictor(cerebro):
       backtrader默认是美股一年252个交易日
       用官方的分析器成本更高
     '''
+    # cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='_TradeAnalyzer')
     # 添加自定义的分析指标
     # cerebro.addanalyzer(Kelly, _name='_Kelly')
     cerebro.addanalyzer(trade_list, _name='_tradelist')
@@ -74,11 +89,15 @@ def get_analysis_indictor(start,benchmark_df):
     xd_df = pd.DataFrame()
     xd_df['交易日期'] = cl_df['交易日期']
     xd_df['标签'] = '相对收益率'
-    xd_df['累计收益率'] = np.array(cl_df['累计收益率'])-np.array(benchmark_df['累计收益率'])
+    xd_df['累计收益率'] = np.array(cl_df['yield_td'])-np.array(benchmark_df['yield_td'])
 
     cl_df['标签'] = '策略收益率'
     benchmark_df['标签'] = '沪深300'
 
+    cl_df.rename(columns={'yield_td': '累计收益率'}, inplace=True)
+    benchmark_df.rename(columns={'yield_td': '累计收益率'}, inplace=True)
+
+    # sort_values(by=['交易日期','标签'], ascending=True)
     zx_df = pd.concat([cl_df[['交易日期','标签','累计收益率']],benchmark_df[['交易日期','标签','累计收益率']],xd_df], axis=0).reset_index(drop=True)
     zx_df['交易日期'] = zx_df['交易日期'].apply(lambda x: pd.to_datetime(x).date())
 
@@ -87,37 +106,15 @@ def get_analysis_indictor(start,benchmark_df):
 
 def benchmark_analysis(benchmark_df):
     benchmark_df['交易日期'] = np.vectorize(lambda s: pd.to_datetime(s).date())(benchmark_df.index.to_pydatetime())
-    benchmark_df['今日收益率']=benchmark_df['close']/benchmark_df['close'].shift(1)
-    benchmark_df['今日收益率']=benchmark_df['今日收益率'].fillna(0)
-    benchmark_df['近7天收益率']=benchmark_df['今日收益率'].rolling(window=7,min_periods=1).sum()
-    # 这里取 22天交易日
-    benchmark_df['近1月收益率']=benchmark_df['今日收益率'].rolling(window=22,min_periods=1).sum()
-    benchmark_df['近3月收益率']=benchmark_df['今日收益率'].rolling(window=66,min_periods=1).sum()
-    benchmark_df['累计收益率']=(benchmark_df['close']/benchmark_df['close'].iloc[0])-1
-    # benchmark_df['累计收益率']=benchmark_df['今日收益率'].cumprod()
-    # benchmark_df['累计收益率']=(benchmark_df['今日收益率']+1).cumprod()-1
-
     # 累计收益走势图
+    benchmark_df = algorithmUtils.get_holding_yield_qc(benchmark_df)
     # 收益统计表
-    total_ret=round(benchmark_df['累计收益率'].iloc[-1],2)
-    rate_1d=round(benchmark_df['今日收益率'].iloc[-1],2)
-    rate_7d=round(benchmark_df['近7天收益率'].iloc[-1],2)
-    rate_22d=round(benchmark_df['近1月收益率'].iloc[-1],2)
-    rate_66d=round(benchmark_df['近3月收益率'].iloc[-1],2)
-    # 年化收益率
-    annual_ret = round(pow(1 + benchmark_df['累计收益率'].iloc[-1], 250/len(benchmark_df)) - 1,2)
-    max_drawdown_rate = algorithmUtils.max_drawdown(benchmark_df['close'])
-    # 夏普比率 表示每承受一单位总风险，会产生多少的超额报酬，可以同时对策略的收益与风险进行综合考虑。可以理解为经过风险调整后的收益率。计算公式如下，该值越大越好
-    # 超额收益率以无风险收益率为基准
-    # 公认默认无风险收益率为年化3%
-    exReturn = benchmark_df['今日收益率'] - 0.03 / 250
-    sharperatio = round(np.sqrt(len(exReturn)) * exReturn.mean() / exReturn.std(),2)
+    benchmark_dic = algorithmUtils.get_holding_yield_tj(benchmark_df)
 
-    benchmark_an_df = pd.DataFrame([['沪深300', total_ret, annual_ret,None,max_drawdown_rate,sharperatio,rate_1d,rate_7d,rate_22d,rate_66d]],
-                                      columns=['策略','累计收益率', '年化收益率', '胜率','最大回撤%', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率'])
+    benchmark_an_df = pd.DataFrame([['沪深300', benchmark_dic['yield_td'], benchmark_dic['annual_ret'],None,benchmark_dic['max_drawdown'],benchmark_dic['sharp_ratio'],benchmark_dic['yield_1d'],benchmark_dic['yield_7d'],benchmark_dic['yield_22d'],benchmark_dic['yield_66d']]],
+                                      columns=['策略','累计收益率', '年化收益率', '胜率','最大回撤', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率'])
 
     return benchmark_df.reset_index(drop=True),benchmark_an_df
-
 
 class trade_assets(bt.Analyzer):
     '''todo 自定义分析器 获取每日总资产 收益率等'''
@@ -137,7 +134,7 @@ class trade_assets(bt.Analyzer):
     def next(self):
         super(trade_assets, self).next()
         # 这里总资产会自动3位小数四舍五入 与策略的总资产next获取有小小区别 这个持仓占比好像有点问题
-        self.rets.append({'交易日期': pd.to_datetime(self.datas[0].datetime.datetime()).date(), '当前总资产': self.strategy.broker.getvalue(),'持仓比': (self.strategy.broker.getvalue()-self.strategy.broker.getcash())/self.strategy.broker.getvalue()})
+        self.rets.append({'交易日期': pd.to_datetime(self.datas[0].datetime.datetime()).date(), 'close': self.strategy.broker.getvalue(),'持仓比': (self.strategy.broker.getvalue()-self.strategy.broker.getcash())/self.strategy.broker.getvalue()*100})
 
     def notify_trade(self, trade):
         if trade.status == trade.Closed:
@@ -165,50 +162,38 @@ class trade_assets(bt.Analyzer):
             self.winProb = None
 
         self.cl_df = pd.DataFrame(self.rets)
-        self.cl_df['今日收益率'] = self.cl_df['当前总资产']/self.cl_df['当前总资产'].shift(1)
-        self.cl_df['今日收益率'] = self.cl_df['今日收益率'].fillna(0)
-        self.cl_df['近7天收益率'] = self.cl_df['今日收益率'].rolling(window=7, min_periods=1).sum()
-        # 这里取 22天交易日
-        self.cl_df['近1月收益率'] = self.cl_df['今日收益率'].rolling(window=22, min_periods=1).sum()
-        self.cl_df['近3月收益率'] = self.cl_df['今日收益率'].rolling(window=66, min_periods=1).sum()
-        self.cl_df['累计收益率'] = (self.cl_df['当前总资产'] / self.cl_df['当前总资产'].iloc[0]) - 1
-        # self.cl_df['累计收益率']=self.cl_df['今日收益率'].cumprod()
-        # self.cl_df['累计收益率']=(self.cl_df['今日收益率']+1).cumprod()-1
-
         # 累计收益走势图
+        self.cl_df = algorithmUtils.get_holding_yield_qc(self.cl_df)
         # 收益统计表
-        total_ret = round(self.cl_df['累计收益率'].iloc[-1], 2)
-        rate_1d = round(self.cl_df['今日收益率'].iloc[-1], 2)
-        rate_7d = round(self.cl_df['近7天收益率'].iloc[-1], 2)
-        rate_22d = round(self.cl_df['近1月收益率'].iloc[-1], 2)
-        rate_66d = round(self.cl_df['近3月收益率'].iloc[-1], 2)
-        # 年化收益率
-        annual_ret = round(pow(1 + self.cl_df['累计收益率'].iloc[-1], 250 / len(self.cl_df)) - 1, 2)
-        max_drawdown_rate = algorithmUtils.max_drawdown(self.cl_df['当前总资产'])
-        # 夏普比率 表示每承受一单位总风险，会产生多少的超额报酬，可以同时对策略的收益与风险进行综合考虑。可以理解为经过风险调整后的收益率。计算公式如下，该值越大越好
-        # 超额收益率以无风险收益率为基准
-        # 公认默认无风险收益率为年化3%
-        exReturn = self.cl_df['今日收益率'] - 0.03 / 250
-        sharperatio = round(np.sqrt(len(exReturn)) * exReturn.mean() / exReturn.std(), 2)
+        cl_dic = algorithmUtils.get_holding_yield_tj(self.cl_df)
 
-        self.cl_an_df = pd.DataFrame([['本策略', total_ret, annual_ret, round(self.winProb * 100, 2), max_drawdown_rate,
-                                       sharperatio, rate_1d, rate_7d, rate_22d, rate_66d]],
-                                     columns=['策略', '累计收益率', '年化收益率', '胜率', '最大回撤%', '夏普比率', '今日收益率', '近7天收益率',
-                                              '近1月收益率',
-                                              '近3月收益率'])
+        if self.winProb is None:
+            wp = None
+        else:
+            wp = round(self.winProb * 100, 2)
 
-def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash):
+        self.cl_an_df = pd.DataFrame([['本策略', cl_dic['yield_td'], cl_dic['annual_ret'], wp,cl_dic['max_drawdown'],
+                                       cl_dic['sharp_ratio'], cl_dic['yield_1d'],cl_dic['yield_7d'], cl_dic['yield_22d'], cl_dic['yield_66d']]],
+                                columns=['策略', '累计收益率', '年化收益率', '胜率', '最大回撤', '夏普比率', '今日收益率', '近7天收益率', '近1月收益率','近3月收益率'])
+
+def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash,hold_day,hold_n,port):
     '''回测结果可视化'''
     app = dash.Dash(__name__)
-    # 收益率走势
+    # 缓存性能优化 可以用redis
+    cache = Cache(app.server, config={
+        'CACHE_TYPE': 'filesystem',
+        'CACHE_DIR': 'cache-directory'
+    })
 
     # '交易日期', '标签', '累计收益率'
-    # 剔除不交易日期
-    dt_all = pd.date_range(start_date,end_date)
+    # 剔除不交易日期 要区间范围内的 否则会有bug
+    dt_all = pd.date_range(min(zx_df['交易日期']),max(zx_df['交易日期']))
+    print('最小最大：',type(min(zx_df['交易日期'])),min(zx_df['交易日期']),max(zx_df['交易日期']))
     dt_all = [pd.to_datetime(d).date() for d in dt_all]
     dt_breaks = list(set(dt_all) - set(zx_df['交易日期']))
+    # print('dt_breaks：',dt_breaks,type(dt_breaks))
 
-    hovertext = []  # 添加悬停信息
+    # hovertext = []  # 添加悬停信息
     # for date in zx_df['交易日期'].unique(): # <br>表示
     #     hovertext.append('日期: ' + str(date) +
     #                      '<br>策略收益率: ' +str(zx_df.query('标签=="策略收益率" & 交易日期 == @date')['累计收益率'])+
@@ -228,18 +213,20 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
         y=zx_df['累计收益率'],
         color='标签',
         color_discrete_sequence=['#FF0000', '#2776B6', '#8F4E4F'],
-        hover_data={'标签': False}
+        hover_data={'标签': False,
+                    '交易日期': "|%Y-%m-%d"}
     )
-
     # zx_fig.add_trace(go.Scatter(x=zx_df.query('标签=="策略收益率"')['交易日期'], y=zx_df.query('标签=="策略收益率"')['累计收益率'],mode='lines',marker_color='#FF0000', name='策略收益率'))
     # zx_fig.add_trace(go.Scatter(x=zx_df.query('标签=="沪深300"')['交易日期'], y=zx_df.query('标签=="沪深300"')['累计收益率'],mode='lines',marker_color='#7ABDFF', name='沪深300'))
     # zx_fig.add_trace(go.Scatter(x=zx_df.query('标签=="相对收益率"')['交易日期'], y=zx_df.query('标签=="相对收益率"')['累计收益率'],mode='lines',marker_color='#333333', name='相对收益率'))
     zx_fig.update_xaxes(
-        dtick="D1",
-        tickformat='%Y-%m-%d',  # 日期显示模式
+        # rangebreaks=[dict(values=dt_breaks)], # dt_breaks有数据 但是持仓那里却可以这里为什么会显示不了 line会有问题
         ticklabelmode='instant',  # ticklabelmode模式：居中 'instant', 'period'
-        # rangeslider_visible=True, #开启范围滑块
-        rangebreaks=[dict(values=dt_breaks)],# 去除休市的日期，保持连续
+        tickformatstops=[
+            dict(dtickrange=[3600000, "M1"], value='%Y-%m-%d'),
+            dict(dtickrange=["M1", "M12"], value='%Y-%m'),
+            dict(dtickrange=["M12", None], value='%Y')
+        ],
         rangeselector=dict(
             # 增加固定范围选择
             buttons=list([
@@ -249,8 +236,7 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
                 dict(count=1, label='YTD', step='year', stepmode='todate'),
                 dict(step='all')]))
     )
-    # Do not show OHLC's rangeslider plot
-    # zx_fig.update(layout_xaxis_rangeslider_visible=False)
+    zx_fig.update_yaxes(ticksuffix='%',side='right',ticklabelposition='inside')
     zx_fig.update_layout(xaxis_title=None, yaxis_title=None, legend_title_text=None,legend=dict(orientation="h", yanchor="bottom",y=1.02,xanchor="right",x=1))
 
     # 绘制持仓比
@@ -261,8 +247,16 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
         hover_data={'交易日期': "|%Y-%m-%d"},  # 悬停信息设置
         color_discrete_sequence=['#66FF99']
     )
-    cc_fig.update_xaxes(tickformat='%Y-%m-%d',rangebreaks=[dict(values=dt_breaks)],visible=False, fixedrange=True)
-    cc_fig.update_yaxes(fixedrange=True)
+    # tickformat = '%Y-%m-%d' visible=False,
+    cc_fig.update_xaxes(rangebreaks=[dict(values=dt_breaks)],
+                        ticklabelposition='inside',
+                        tickformatstops=[
+                            dict(dtickrange=[3600000, "M1"], value='%Y-%m-%d'),
+                            dict(dtickrange=["M1", "M12"], value='%Y-%m'),
+                            dict(dtickrange=["M12", None], value='%Y')
+                        ])
+    cc_fig.update_yaxes(ticksuffix='%',ticklabelposition='inside',side='right')
+    # yaxis_tickformat='%' 会自动乘100
     cc_fig.update_layout(xaxis_title=None,margin=dict(t=10,l=10,b=10,r=10), width=1447,height=80)
 
     # cc_fig = make_subplots(rows=2, cols=1, shared_xaxes=True,vertical_spacing=0.02, subplot_titles=('', '持仓比'),row_width=[0.2, 0.7])
@@ -270,7 +264,20 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
     # cc_fig.update_xaxes(dtick="D1",tickformat='%Y-%m-%d',rangebreaks=[dict(values=dt_breaks)])
     # cc_fig.update_layout(xaxis_title=None, yaxis_title=None, legend_title_text=None,legend=dict(orientation="h", yanchor="bottom",y=1.02,xanchor="right",x=1))
 
-    # todo 交易详情 分页
+    # 设置后缀
+    an_columns = [
+        dict(id='策略', name='策略'),
+        dict(id='累计收益率', name='累计收益率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+        dict(id='年化收益率', name='年化收益率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+        dict(id='胜率', name='胜率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+        dict(id='最大回撤', name='最大回撤', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+        dict(id='夏普比率', name='夏普比率'),
+        dict(id='今日收益率', name='今日收益率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+        dict(id='近7天收益率', name='近7天收益率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+        dict(id='近1月收益率', name='近1月收益率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+        dict(id='近3月收益率', name='近3月收益率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$'))
+    ]
+
     tl_df.sort_index(ascending=False,inplace=True)
     app.layout = html.Div(
         [
@@ -278,19 +285,16 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
                 children='{}策略评估'.format(strategy_name),
                 style=dict(textAlign='center', color='black')),
             html.Div(
-                children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}    持股周期：2天     买入规则：排名<=3'.format(start_date,end_date,start_cash,end_cash),
+                children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}    持股周期：{}天     买入规则：排名<={}'.format(start_date,end_date,start_cash,end_cash,hold_day,hold_n),
                 style=dict(textAlign='center', color='black')),
             html.H4('累计收益率走势'),
             dcc.Graph(figure=zx_fig, style={'margin-top': '-22px'}),
-            dcc.Graph(figure=cc_fig, style={'margin-top': '-62px'}),
+            dcc.Graph(figure=cc_fig, style={'margin-top': '-62px','margin-left': '400px'}),
             html.H4(children='收益统计', style={'margin-top': '-2px'}),
             dash_table.DataTable(
                 id='收益统计table',
                 data=analyzer_df.to_dict('records'),
-                columns=[
-                    {'name': column, 'id': column}
-                    for column in analyzer_df.drop(['index'], axis=1).columns
-                ],
+                columns=an_columns,
                 style_data_conditional=(
                     [
                      {
@@ -405,7 +409,8 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
         return tl_df.iloc[page_current * page_size:(page_current + 1) * page_size].to_dict('records'), 1 + tl_df.shape[0] // page_size
     # host设置为0000 为了主机能访问 虚拟机的web服务
     # http://hadoop102:8000/
-    app.run(host='0.0.0.0', port='8000', debug=True)
+    # app.run(host='0.0.0.0', port='8000', debug=True)
+    app.run(host='0.0.0.0', port=port)
 
 
 class trade_list(bt.Analyzer):

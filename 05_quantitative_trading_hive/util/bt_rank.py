@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import sys
 curPath = os.path.abspath(os.path.dirname(__file__))
@@ -12,7 +13,7 @@ import akshare as ak
 import matplotlib.pyplot as plt  # 由于 Backtrader 的问题，此处要求 pip install matplotlib==3.2.2
 # 在linux会识别不了包 所以要加临时搜索目录
 from util import btUtils
-from util.CommonUtils import get_spark
+from util.CommonUtils import multiprocessing_func
 # 输出显示设置
 pd.options.display.max_rows=None
 pd.options.display.max_columns=None
@@ -39,7 +40,7 @@ class stockStrategy(bt.Strategy):
     '''多因子选股策略 - 直接指标选股
        下一交易日开盘价买入 结束日期收盘价卖出
     '''
-    def __init__(self, end_date,hold_day=2,hold_n=3):
+    def __init__(self, end_date,hold_day,hold_n):
         '''策略中各类指标的批量计算或是批量生成交易信号都可以写在这里'''
         '''__init__() 函数在回测过程中只会在最开始的时候调用一次，而 next() 会每个交易日依次循环调用多次；
             line 在 __init__() 中侧重于对整条 line 的操作，而在 next() 中侧重于站在当前回测时点，对单个数据点进行操作，所以对索引 [ ] 做了简化
@@ -64,13 +65,13 @@ class stockStrategy(bt.Strategy):
         #     return
 
         for data in self.datas:
-            # 6分1仓位
-            # money = self.broker.get_cash() / self.hold_n*2 - hold_now
-            money = self.broker.getvalue() / (self.hold_n*(self.hold_day+1))
             #没有持仓，则可以在下一交易日开盘价买 不要在股票数据最后周期进行买入
             if self.getposition(data).size == 0 and data.stock_strategy_ranking[0] <= self.hold_n and data.datetime.date()<=self.end_date-datetime.timedelta(self.hold_day+1):
-                    # 如果可用现金小于成本则跳过这个循环
-                    size = int(money / data.close[0] / 100) * 100
+                    # 6分1仓位
+                    # money = self.broker.get_cash() / self.hold_n*2 - hold_now
+                    money = self.broker.getvalue() / (self.hold_n * (self.hold_day + 1))
+                    # 如果可用现金小于成本则跳过这个循环 money用下一日开盘价作为计算
+                    size = int(money / data.open[1] / 100) * 100
                     self.order = self.buy(data=data, size=size, exectype=bt.Order.Market)
                     # 6分1仓位
                     # self.order = self.order_target_percent(data=data, target=0.16, exectype=bt.Order.Market)
@@ -101,9 +102,9 @@ class stockStrategy(bt.Strategy):
         order_status = ['Created', 'Submitted', 'Accepted', 'Partial','Completed', 'Canceled', 'Expired', 'Margin', 'Rejected']
         # 未被处理的订单 order 为 submitted/accepted
         if order.status in [order.Submitted, order.Accepted]:
-            # self.log('未被处理的订单：ref:%.0f, name: %s, Order: %s' % (order.ref,
-            #                                             order.data._name,
-            #                                             order_status[order.status]))
+            self.log('未被处理的订单：ref:%.0f, name: %s, Order: %s' % (order.ref,
+                                                        order.data._name,
+                                                        order_status[order.status]))
             return
 
         # 已经处理的订单 如果order为buy/sell executed,报告价格结果
@@ -157,7 +158,66 @@ class stockStrategy(bt.Strategy):
     #     self.log("期末总资金 %s" % (self.broker.getvalue()), do_print=True)
 
 
-def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',start_cash=100000, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
+def add_datafeed(codes,pd_df,benchmark_df,start_date,end_date):
+    result_list = []
+    # 按股票代码，依次循环传入数据
+    for stock in codes:
+        df = pd_df.query(f"stock_code=='{stock}'")[['open', 'high', 'low', 'close', 'volume','stock_strategy_ranking']]
+        # 缺失值处理 每个股票与指数匹配日期
+        df = df.reindex_like(benchmark_df)
+        # 排序字段要特别填充
+        df.loc[:, ['stock_strategy_ranking']] = df.loc[:, ['stock_strategy_ranking']].fillna(9999)
+        # 用后面下一日非缺失的填充 pad为前一日
+        df.fillna(method='bfill', inplace=True)
+        df.fillna(method='pad', inplace=True)
+        df.fillna(value=0, inplace=True)
+        # 通过 name 实现数据集与股票的一一对应
+        # 增加字段 规范化数据格式
+        # datafeed = MyCustomdata(dataname=df,
+        #                            fromdate=pd.to_datetime(start_date),
+        #                            todate=pd.to_datetime(end_date),
+        #                            timeframe=bt.TimeFrame.Days)  # 将数据的时间周期设置为日
+        datafeed = MyCustomdata(dataname=df,
+                                fromdate=pd.to_datetime(start_date),
+                                todate=pd.to_datetime(end_date)
+                                )
+        # 将数据加载至回测系统 通过 name 实现数据集与股票的一一对应 bt的问题不能在这里直接add
+        # cerebro.adddata(datafeed, name=stock)
+        # print(f"{stock} Done !")
+        result_list.extend([datafeed,stock])
+
+    return result_list
+
+def multiprocess_add_datafeed(pd_df,benchmark_df,start_date,end_date,cerebro):
+    '''多进程加载数据'''
+    code_list=pd_df['stock_code'].unique()
+    process_num = min(10,int(os.cpu_count() / (1 - 0.9)))
+    code_group = btUtils.get_code_datafeed_group(code_list, process_num)
+    result_list = []
+    with multiprocessing.Pool(processes=process_num) as pool:
+        # 多进程异步计算
+        for i in range(len(code_group)):
+            codes = code_group[i]
+            # 传递给apply_async()的函数如果有参数，需要以元组的形式传递 并在最后一个参数后面加上 , 号，如果没有加, 号，提交到进程池的任务也是不会执行的
+            result_list.append(pool.apply_async(add_datafeed, args=(codes,pd_df,benchmark_df,start_date,end_date,)))
+        # 阻止后续任务提交到进程池
+        pool.close()
+        # 等待所有进程结束
+        pool.join()
+
+    for r in result_list:
+        rl = r.get()
+        if len(rl) > 0:
+            # 将数据加载至回测系统 通过 name 实现数据集与股票的一一对应
+            for (datafeed,stock) in rl:
+                print(datafeed,stock)
+                cerebro.adddata(datafeed, name=stock)
+        else:
+            print('rl为空')
+
+def hc(pd_df,start_date,end_date,end_date_n,strategy_name='xxx',stockStrategy=stockStrategy,hold_day=2,hold_n=3,port='8000',start_cash=None, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
+    start_cash = hold_day * hold_n * 20000 if start_cash is None else start_cash
+
     # 添加业绩基准时，需要事先将业绩基准的数据添加给 cerebro 沪深300 指数字段是 date open close high low volume
     benchmark_df = ak.stock_zh_index_daily(symbol=benchmark_code)
     benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date_n)]
@@ -166,12 +226,15 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
     benchmark_df = benchmark_df[['open', 'close', 'high', 'low', 'volume']]
     benchmark_df['stock_strategy_ranking'] = 9999
 
-    cerebro = bt.Cerebro()
+    # cerebro = bt.Cerebro()
+    # 在进行大规模回测时 禁用默认观察者，也不要启用自定义观察者，提高运行速度
+    cerebro = bt.Cerebro(stdstats=False,maxcpus=None)
+
     # banchdata = MyCustomdata(dataname=benchmark_df)
     # cerebro.adddata(banchdata, name='沪深300',fromdate=pd.to_datetime(start_date), todate=pd.to_datetime(end_date))
     # cerebro.addobserver(bt.observers.Benchmark, data=banchdata)
 
-    # 按股票代码，依次循环传入数据
+    # # 按股票代码，依次循环传入数据
     for stock in pd_df['stock_code'].unique():
         df = pd_df.query(f"stock_code=='{stock}'")[['open', 'high', 'low', 'close', 'volume','stock_strategy_ranking']]
         # 缺失值处理 每个股票与指数匹配日期
@@ -179,8 +242,7 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
         # 排序字段要特别填充
         df.loc[:, ['stock_strategy_ranking']] = df.loc[:, ['stock_strategy_ranking']].fillna(9999)
         # 用后面下一日非缺失的填充 pad为前一日
-        df.fillna(method='bfill', inplace=True)
-        df.fillna(0, inplace=True)
+        df = df.fillna(method='bfill').fillna(method='pad').fillna(0)
         # 通过 name 实现数据集与股票的一一对应
         # 增加字段 规范化数据格式
         # datafeed = MyCustomdata(dataname=df,
@@ -194,6 +256,9 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
         # 将数据加载至回测系统 通过 name 实现数据集与股票的一一对应
         cerebro.adddata(datafeed, name=stock)
         # print(f"{stock} Done !")
+
+    # 多进程加载数据
+    # multiprocess_add_datafeed(pd_df,benchmark_df,start_date,end_date,cerebro)
 
     # 设置初始资金
     cerebro.broker.setcash(start_cash)
@@ -209,7 +274,7 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
     cerebro.broker.addcommissioninfo(mycomm)
 
     # 添加策略至回测系统！
-    cerebro.addstrategy(stockStrategy,end_date=end_date)
+    cerebro.addstrategy(stockStrategy,end_date,hold_day,hold_n)
     # 添加分析指标
     btUtils.add_ananlsis_indictor(cerebro)
     # 参数优化器 只有指标哪些在bt计算才好用，比如比较同一个策略 不同的均线 最终的收益率
@@ -226,7 +291,7 @@ def hc(pd_df,stockStrategy,start_date,end_date,end_date_n,strategy_name='xxx',st
     print('{} 分析器 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     # 可视化回测结果
     print('{} 开始可视化!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash)
+    btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash,hold_day,hold_n,port)
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py
