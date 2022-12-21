@@ -41,21 +41,17 @@ def get_data(start_date):
         # MySQL无法处理nan
         pd_df = pd_df.replace({np.nan: None})
 
-
-        # 也可以在 spark-defaults.conf 全局配置 使用Arrow pd_df spark_df提高转换速度
-        spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "true")
         spark_df = spark.createDataFrame(pd_df)
-        spark.sql("""alter table stock.ods_dc_stock_concept_plate_name_di drop if exists partition (td = '%s');"""% (start_date))
         # # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 5 个数据文件。
-        spark_df.repartition(1).write.insertInto('stock.ods_dc_stock_concept_plate_name_di',overwrite=False)  # 如果执行不存在这个表，会报错
+        spark_df.repartition(1).write.insertInto('stock.ods_dc_stock_concept_plate_rt_di',overwrite=True)
         spark.stop
     except Exception as e:
         print(e)
     print('{}：执行完毕！！！'.format(appName))
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/ods_dc_stock_concept_plate_name_di.py
-# nohup python ods_dc_stock_concept_plate_name_di.py >> my.log 2>&1 &
-# python ods_dc_stock_concept_plate_name_di.py
+# spark-submit /opt/code/05_quantitative_trading_hive/ods/ods_dc_stock_concept_plate_rt_di.py
+# nohup python ods_dc_stock_concept_plate_rt_di.py >> my.log 2>&1 &
+# python ods_dc_stock_concept_plate_rt_di.py
 if __name__ == '__main__':
     start_time = time.time()
     start_date = date.today()

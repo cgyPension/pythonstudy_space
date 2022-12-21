@@ -45,15 +45,15 @@ def get_data(start_date):
  
         spark_df = spark.createDataFrame(df)
         # # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 5 个数据文件。
-        spark_df.repartition(1).write.insertInto('stock.ods_dc_stock_industry_plate_name_di',overwrite=True)  # 如果执行不存在这个表，会报错
+        spark_df.repartition(1).write.insertInto('stock.ods_dc_stock_industry_plate_rt_di',overwrite=True)  # 如果执行不存在这个表，会报错
         spark.stop
     except Exception as e:
         print(e)
     print('{}：执行完毕！！！'.format(appName))
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/ods_dc_stock_industry_plate_name_di.py
-# nohup python ods_dc_stock_industry_plate_name_di.py >> my.log 2>&1 &
-# python ods_dc_stock_industry_plate_name_di.py
+# spark-submit /opt/code/05_quantitative_trading_hive/ods/ods_dc_stock_industry_plate_rt_di.py
+# nohup python ods_dc_stock_industry_plate_rt_di.py >> my.log 2>&1 &
+# python ods_dc_stock_industry_plate_rt_di.py
 if __name__ == '__main__':
     start_time = time.time()
     start_date = datetime.date.today()

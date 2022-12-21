@@ -18,30 +18,22 @@ pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz.py update 20210101 20221201
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz.py update 20220101 20221201
-# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz.py update 20210101 20221201 >> my.log 2>&1 &
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz.py update 20210101 20221201
-if __name__ == '__main__':
-    start_date = date.today().strftime('%Y%m%d')
-    end_date = start_date
-    if len(sys.argv) == 1:
-        print("请携带一个参数 all update 更新要输入开启日期 结束日期 不输入则默认当天")
-    elif len(sys.argv) == 2:
-        run_type = sys.argv[1]
-        if run_type == 'all':
-            start_date = '20210101'
-            end_date
-        else:
-            start_date
-            end_date
-    elif len(sys.argv) == 4:
-        run_type = sys.argv[1]
-        start_date = sys.argv[2]
-        end_date = sys.argv[3]
 
-    # start_date = '20221101'
-    # end_date = '20221118'
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py 20210101 20221201 2 3 7777
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py 20210101 20221201 5 3 8000
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py 20210101 20221201 22 3 8000
+# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py update 20210101 20221201 >> my.log 2>&1 &
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py update 20210101 20221201
+if __name__ == '__main__':
+    if len(sys.argv) < 6:
+        print("请携带所有参数")
+    else:
+        start_date = sys.argv[1]
+        end_date = sys.argv[2]
+        hold_day = sys.argv[3]
+        hold_n = sys.argv[4]
+        port = sys.argv[5]
+
 
     appName = os.path.basename(__file__)
     start_time = time.time()
@@ -58,9 +50,9 @@ if __name__ == '__main__':
                and stock_name not rlike 'ST'
                --rlike语句匹配正则表达式 like rlike会自动把null的数据去掉 要转换
                and nvl(concept_plates,'保留null') not rlike '次新股'
+               and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
                and change_percent <5
                and turnover_rate between 1 and 30
-               and stock_label_names rlike '小市值'
                and pe_ttm between 0 and 30
        ),
        tmp_ads_02 as (
@@ -70,11 +62,12 @@ if __name__ == '__main__':
        where suspension_time is null
        --      and pe_ttm is null
        --      or pe_ttm <=30
-             or estimated_resumption_time < date_add('%s',1)
+             or estimated_resumption_time < date_add(trade_date,1)
        ),
        --要剔除玩所有不要股票再排序 否则排名会变动
        tmp_ads_03 as (
        select *,
+              dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
               dense_rank()over(partition by td order by total_market_value) as dr_tmv,
               dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
               dense_rank()over(partition by td order by pe_ttm,pe) as dr_pe_ttm,
@@ -87,7 +80,7 @@ if __name__ == '__main__':
                              -- 加上量比排序 避免排名重复
                              -- dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
                              -- 权重 
-                             dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm+dr_sub_factor_score,volume_ratio_1d) as stock_strategy_ranking
+                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_tmv+dr_turnover_rate+dr_pe_ttm+dr_sub_factor_score,volume_ratio_1d) as stock_strategy_ranking
                       from tmp_ads_03
        )
     select nvl(t1.trade_date,t2.trade_date) as trade_date,
@@ -104,7 +97,7 @@ if __name__ == '__main__':
                 and t1.stock_code = t2.stock_code
                 and t2.td between '%s' and '%s'
            order by stock_strategy_ranking
-        """ % (start_date, end_date_5, end_date_5, start_date, end_date_5)
+        """ % (start_date, end_date_5, start_date, end_date_5)
 
     # 读取数据
     spark_df = spark.sql(sql)
@@ -113,6 +106,6 @@ if __name__ == '__main__':
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
     print('{} 获取数据 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-    bt_rank.hc(pd_df, start_date, end_date, end_date_n=end_date_5, strategy_name=appName, hold_day=2, hold_n=3, port='8000')
+    bt_rank.hc(appName,pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

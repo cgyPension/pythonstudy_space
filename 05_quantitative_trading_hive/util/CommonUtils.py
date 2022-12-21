@@ -27,6 +27,10 @@ def get_spark(appName):
     # 也可以在 spark-defaults.conf 全局配置 使用Arrow pd_df spark_df提高转换速度
     # spark.conf.set("spark.sql.execution.arrow.pyspark.enabled", "true")
     # hive.metastore.uris: 访问hive metastore 服务的地址    # .master('local')
+    # .config('spark.yarn.appMasterEnv.PYSPARK_PYTHON', '/opt/module/anaconda3/envs/pyspark_env/bin/python3') \
+    # .config('spark.yarn.appMasterEnv.PYSPARK_DRIVER_PYTHON', '/opt/module/anaconda3/envs/pyspark_env/bin/python3') \
+    # .config('spark.executorEnv.PYSPARK_PYTHON', '/opt/module/anaconda3/envs/pyspark_env/bin/python3') \
+    # .config('spark.executorEnv.PYSPARK_DRIVER_PYTHON', '/opt/module/anaconda3/envs/pyspark_env/bin/python3') \
     spark = SparkSession.builder \
         .master('local[*]') \
         .appName(appName)\

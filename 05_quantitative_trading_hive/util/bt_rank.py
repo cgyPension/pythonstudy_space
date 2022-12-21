@@ -215,7 +215,7 @@ def multiprocess_add_datafeed(pd_df,benchmark_df,start_date,end_date,cerebro):
         else:
             print('rl为空')
 
-def hc(pd_df,start_date,end_date,end_date_n,strategy_name='xxx',stockStrategy=stockStrategy,hold_day=2,hold_n=3,port='8000',start_cash=None, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
+def hc(strategy_name,pd_df,start_date,end_date,end_date_n,hold_day=2,hold_n=3,mu=False,port='8000',stockStrategy=stockStrategy,start_cash=None, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
     start_cash = hold_day * hold_n * 20000 if start_cash is None else start_cash
 
     # 添加业绩基准时，需要事先将业绩基准的数据添加给 cerebro 沪深300 指数字段是 date open close high low volume
@@ -282,16 +282,136 @@ def hc(pd_df,start_date,end_date,end_date_n,strategy_name='xxx',stockStrategy=st
 
     # print("期初总资金: %s" % cerebro.broker.getvalue())
     results = cerebro.run(tradehistory=True) # 启动回测
-    print('{} 回测系统 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    print('{} {}策略回测系统 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),strategy_name))
     end_cash = round(cerebro.broker.getvalue(),2)
     # print("期末总资金: %s" % cerebro.broker.getvalue())
     start = results[0]
     # 得到分析指标数据
     zx_df,cc_df,analyzer_df,tl_df = btUtils.get_analysis_indictor(start,benchmark_df[benchmark_df.index <= pd.to_datetime(end_date)])
-    print('{} 分析器 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    # 可视化回测结果
+    print('{} {}策略分析器 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),strategy_name))
+    if mu:
+        print('开始返回！！！')
+        return {'策略': strategy_name, '持股周期': hold_day,'买入排名': hold_n, '开始日期': start_date,'结束日期': end_date, '期初资金': start_cash, '期末资金': end_cash,
+                '走势图': zx_df,'持仓比': cc_df,'收益统计': analyzer_df,'交易详情': tl_df}
+
+
+        print('返回成功！！！')
+    else:
+        # 可视化回测结果
+        print('{} 开始可视化!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash,hold_day,hold_n,port)
+
+def hc_2(strategy_name,pd_df,start_date,end_date,end_date_n,hold_day=2,hold_n=3,port='8000',stockStrategy=stockStrategy,start_cash=None, stake=800, commission_fee=0.001,perc=0.0001,benchmark_code='sh000300'):
+    start_cash = hold_day * hold_n * 20000 if start_cash is None else start_cash
+
+    # 添加业绩基准时，需要事先将业绩基准的数据添加给 cerebro 沪深300 指数字段是 date open close high low volume
+    benchmark_df = ak.stock_zh_index_daily(symbol=benchmark_code)
+    benchmark_df = benchmark_df[(benchmark_df['date'] >= start_date) & (benchmark_df['date'] <= end_date_n)]
+    benchmark_df = benchmark_df.set_index(pd.to_datetime(benchmark_df['date'])).sort_index()
+    # 缺失值处理：日期对齐时会使得有些交易日的数据为空，所以需要对缺失数据进行填充 要加上pd_df没有的字段
+    benchmark_df = benchmark_df[['open', 'close', 'high', 'low', 'volume']]
+    benchmark_df['stock_strategy_ranking'] = 9999
+
+    # cerebro = bt.Cerebro()
+    # 在进行大规模回测时 禁用默认观察者，也不要启用自定义观察者，提高运行速度
+    cerebro = bt.Cerebro(stdstats=False,maxcpus=None)
+
+    # banchdata = MyCustomdata(dataname=benchmark_df)
+    # cerebro.adddata(banchdata, name='沪深300',fromdate=pd.to_datetime(start_date), todate=pd.to_datetime(end_date))
+    # cerebro.addobserver(bt.observers.Benchmark, data=banchdata)
+
+    # # 按股票代码，依次循环传入数据
+    for stock in pd_df['stock_code'].unique():
+        df = pd_df.query(f"stock_code=='{stock}'")[['open', 'high', 'low', 'close', 'volume','stock_strategy_ranking']]
+        # 缺失值处理 每个股票与指数匹配日期
+        df = df.reindex_like(benchmark_df)
+        # 排序字段要特别填充
+        df.loc[:, ['stock_strategy_ranking']] = df.loc[:, ['stock_strategy_ranking']].fillna(9999)
+        # 用后面下一日非缺失的填充 pad为前一日
+        df = df.fillna(method='bfill').fillna(method='pad').fillna(0)
+        # 通过 name 实现数据集与股票的一一对应
+        # 增加字段 规范化数据格式
+        # datafeed = MyCustomdata(dataname=df,
+        #                            fromdate=pd.to_datetime(start_date),
+        #                            todate=pd.to_datetime(end_date),
+        #                            timeframe=bt.TimeFrame.Days)  # 将数据的时间周期设置为日
+        datafeed = MyCustomdata(dataname=df,
+                                fromdate=pd.to_datetime(start_date),
+                                todate=pd.to_datetime(end_date)
+                                )
+        # 将数据加载至回测系统 通过 name 实现数据集与股票的一一对应
+        cerebro.adddata(datafeed, name=stock)
+        # print(f"{stock} Done !")
+
+    # 多进程加载数据
+    # multiprocess_add_datafeed(pd_df,benchmark_df,start_date,end_date,cerebro)
+
+    # 设置初始资金
+    cerebro.broker.setcash(start_cash)
+    # 防止下单时现金不够被拒绝 只在执行时检查现金够不够
+    cerebro.broker.set_checksubmit(False)
+    # 设计手续费 交易佣金，双边各
+    cerebro.broker.setcommission(commission=commission_fee)
+    # 滑点：双边各 0.0001 使交易更真实 x * (1+ n%) 由于网络等实际成交价格会有编差
+    # cerebro.broker.set_slippage_perc(perc=perc)
+    # 实例化 自定义股票交易费用
+    mycomm = btUtils.StockCommission(stamp_duty=0.001, commission=0.001)
+    # 添加进 broker
+    cerebro.broker.addcommissioninfo(mycomm)
+
+    # 添加策略至回测系统！
+    cerebro.addstrategy(stockStrategy,end_date,hold_day,hold_n)
+    # 添加分析指标
+    btUtils.add_ananlsis_indictor(cerebro)
+    # 参数优化器 只有指标哪些在bt计算才好用，比如比较同一个策略 不同的均线 最终的收益率
+    # cerebro.optstrategy(TestStrategy, period1=range(5, 25, 5), period2=range(10, 41, 10))
+
+    # print("期初总资金: %s" % cerebro.broker.getvalue())
+    results = cerebro.run(tradehistory=True) # 启动回测
+    print('{} {}策略回测系统 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),strategy_name))
+    end_cash = round(cerebro.broker.getvalue(),2)
+    # print("期末总资金: %s" % cerebro.broker.getvalue())
+    start = results[0]
+    # 得到分析指标数据
+    zx_df,cc_df,analyzer_df,tl_df = btUtils.get_analysis_indictor(start,benchmark_df[benchmark_df.index <= pd.to_datetime(end_date)])
+    print('{} {}策略分析器 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),strategy_name))
+    return {'策略': strategy_name, '持股周期': hold_day,'买入排名': hold_n, '开始日期': start_date,'结束日期': end_date, '期初资金': start_cash, '期末资金': end_cash,'走势图': zx_df,'持仓比': cc_df,'收益统计': analyzer_df,'交易详情': tl_df}
+
+def mu_hc(pa_group,process_num):
+    '''多策略回测 数据太多会直接丢 只能存数据库了'''
+    result_list = []
+    with multiprocessing.Pool(processes=process_num) as pool:
+        # 多进程异步计算
+        for i in range(len(pa_group)):
+            strategy_name = pa_group[i][0]
+            pd_df = pa_group[i][1]
+            start_date = pa_group[i][2]
+            end_date = pa_group[i][3]
+            end_date_5 = pa_group[i][4]
+            hold_day = pa_group[i][5]
+            hold_n = pa_group[i][6]
+            mu = pa_group[i][7]
+            # 传递给apply_async()的函数如果有参数，需要以元组的形式传递 并在最后一个参数后面加上 , 号，如果没有加, 号，提交到进程池的任务也是不会执行的
+            result_list.append(pool.apply_async(hc, args=(strategy_name,pd_df,start_date, end_date, end_date_5,hold_day, hold_n,mu,)))
+        # 阻止后续任务提交到进程池
+        pool.close()
+        # 等待所有进程结束
+        pool.join()
+    # rt_list = []
+    # for r in result_list:
+    #     rl = r.get()
+    #     if rl:
+    #         # rt_list.extend(rl)
+    #         print(rl['策略'])
+    #         rt_list.append(rl)
+    #     else:
+    #         print('rl为空')
+
+    # 读取spark可视化
+    rt_list = []
+
     print('{} 开始可视化!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    btUtils.run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_date,start_cash,end_cash,hold_day,hold_n,port)
+    btUtils.run_cerebro_dash_pages(rt_list, port='8000')
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/dim/bt_rank.py

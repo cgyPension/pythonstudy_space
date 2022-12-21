@@ -23,6 +23,7 @@ create table if not exists dwd_stock_quotes_di
     turnover_rate_5d          decimal(20, 4) comment '5日平均换手率',
     turnover_rate_10d         decimal(20, 4) comment '10日平均换手率',
     total_market_value        decimal(20, 4) comment '总市值',
+    z_total_market_value      decimal(20, 4) comment '行业标准差总市值',
     industry_plate            string comment '行业板块',
     concept_plates            string comment '概念板块 ,拼接',
     pe                        decimal(20, 4) comment '市盈率',

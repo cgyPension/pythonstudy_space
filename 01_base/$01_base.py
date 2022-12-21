@@ -41,6 +41,11 @@ print(bool(''))  # Flase 只有空字符串 '' / "" None 空的数据类型元�
 print(True + 1)  # 2
 print(False + 1)  # 1
 
+lst99 = [['001', '三'], ['002', '三'], ['003', '三']]
+i = 0
+for i, (num, sss) in enumerate(lst99):
+    print(i + 1, num, sss)
+
 # 隐式转换
 if 3:
     print('隐式转换打印')

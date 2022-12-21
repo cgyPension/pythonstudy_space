@@ -130,6 +130,6 @@ if __name__ == '__main__':
     process_num = get_process_num()
 
     start_time = time.time()
-    multiprocess_run(code_list, start_date,end_date, hive_engine, process_num)
+    multiprocess_run(code_list, start_date,end_date, hive_engine, 3)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

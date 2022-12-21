@@ -37,8 +37,8 @@ if __name__ == '__main__':
     # 沪深300 000300
     # stock_zh_index_daily_df = ak.stock_zh_index_daily(symbol="sh000300")
     # print(stock_zh_index_daily_df)
-    # df = ak.stock_a_lg_indicator(symbol='000609')
-    # print(df)
+    df = ak.stock_a_lg_indicator(symbol='000609')
+    print(df)
 
     # df = ak.stock_tfp_em(date='20221130')
     # print(df)
@@ -51,69 +51,42 @@ if __name__ == '__main__':
     # ods 单独没有这个29号数据
     # 字段是 date open close high low volume
 
-    # analyzer = pd.DataFrame()
-    # analyzer['年化收益率'] = 1
-    # analyzer['年化收益率（%）'] = 2
-    # # print(analyzer.columns)
-    #
-    #
+
     df = pd.DataFrame({"A": [5, 3, 3, 4],
                        "B": [11, 2, 4, 3],
                        "C": [4, 3, 8, 5],
                        "D": [5, 4, 2, 8]})
-
-    df2 = pd.DataFrame({"A": [pd.to_datetime('20221101').date(), pd.to_datetime('20221201').date(), pd.to_datetime('20220104').date(), pd.to_datetime('20221020').date()]})
-    print(set(df['A']))
-    print(max(df2['A']))
-    print(min(df2['A']))
-    dl = df2['A'].tolist()
-    print(dl,type(dl))
-    rl = []
-    rl.extend(dl)
-    rl.extend(dl)
-    rl.extend(dl)
-    # ab.extend(dl)
-    # print(dl.extend([pd.to_datetime('20231101').date()]))
-    print(rl)
-    # cb_fig_color = np.where(df['A'] < 5, ['#008000'], ['#ff0000'])
-    # cb_fig_color2 = np.where(df['A'] < 5, '#008000', '#ff0000')
-    # print(cb_fig_color)
-    # print(type(cb_fig_color))
-    # print(type(cb_fig_color2))
-    # print(type(df['A'].iloc[-1]))
-    # start_date, end_date = pd.to_datetime('20221201').date(),pd.to_datetime('20221211').date()
-    # df = ak.stock_zh_a_spot_em()
+    #
+    # df2 = pd.DataFrame({"A": [pd.to_datetime('20221101').date(), pd.to_datetime('20221201').date(), pd.to_datetime('20220104').date(), pd.to_datetime('20221020').date()]})
+    # df['r'] = df.A.shift(1)
+    # df = ak.stock_a_lg_indicator(symbol='000609')
     # print(df)
-    # code = df['代码']
-    # print(type(code))
-    # print('运行完毕!!!')
-    # df = ak.stock_zh_a_spot_em()
-    # # 排除 京股
-    # df = df[~df['代码'].str.startswith(('8', '4'))]
-    # df = df.set_index(['代码'])
-    # # print(df)
-    # # 筛选股票数据，上证和深证股票
-    # code_list = df[['名称']].values
-    # print(code_list)
-    # print(type(code_list))
-    # code_group = [[] for i in range(6)]
-    #
-    # # 按余数为每个分组分配股票
-    # for index, codes in enumerate(code_list):
-    #     print('index：',index)
-    #     code_group[index % 6].append(codes)
-    #
-    # print(code_group)
-    # print(df2.reindex_like(df1,method='backfill'))
 
-    # lst5 = [['嘎嘎',58],['好看',16],['广告费',72],['公司',46]]
-    # for datafeed, stock in lst5:
-    #     print(datafeed, 'fajo',stock)
+    # stock_board_concept_hist_em(symbol=concept_plate, start_date=start_date, end_date=end_date, period='daily',adjust='')
+    # stock_board_concept_hist_em_df1 = ak.stock_board_concept_hist_em(symbol="熊去氧胆酸", start_date="20221216",end_date="20221216", period="daily", adjust="")
+    # stock_board_concept_hist_em_df2 = ak.stock_board_concept_hist_em(symbol="熊去氧胆酸", start_date="20221216",end_date="20221216", period='daily', adjust="qfq")
+    # stock_board_concept_hist_em_df3 = ak.stock_board_concept_hist_em(symbol="熊去氧胆酸", start_date="20221216",end_date="20221216", period='daily',adjust="hfq")
+    # print('111',stock_board_concept_hist_em_df1)
+    # print('222',stock_board_concept_hist_em_df2)
+    # print('333',stock_board_concept_hist_em_df3)
 
-    # info = {'name': 'cgy', 'age': 18}
-    # print(info['name'])
-    # list1 = [4,5,6]
-    # list2 = []
+    # lst99 = [['001', [1,11]],['002', [2,22]],['003', [3,33]]]
+    # for i,(num,(a,b)), in enumerate(lst99):
+    #     print(i+1, num,a,b)
     #
+    # print(int(5/2))
+    # pa_group = [['001', 'df'],['002', 'df'],['003', 'df']]
+    # for i in range(len(pa_group)):
+    #     print(len(pa_group))
+    #     print(i)
+    #     num,kk = pa_group[i][0],pa_group[i][1]
+    #     print(num,kk)
+
+    # di = {'sf':4}
+    # if di:
+    #     print('rl不为空')
+    # else:
+    #     print('rl为空')
+
     # print(len(list1))
     # print(len(list2))

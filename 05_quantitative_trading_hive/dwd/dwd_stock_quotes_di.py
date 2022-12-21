@@ -21,20 +21,6 @@ from util.CommonUtils import get_process_num, get_spark
 
 # 太多任务一起执行 mysql不释放内存 要分开断开连接重连
 def get_data(start_date, end_date):
-    # if start_date == '20210101':
-    #     # 全量
-    #     delete_sql = '''truncate table dwd_stock_quotes_di'''
-    #     spark.sql(delete_sql)
-    # else:
-    #     s_date = '20210101'
-    #     td_df = ak.tool_trade_date_hist_sina()
-    #     daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
-    #     # 增量 前5个交易日 但是要预够假期
-    #     start_date = daterange_df.iloc[-5,0]
-    #     end_date = pd.to_datetime(end_date).date()
-    #     delete_sql = '''alter table dwd_stock_quotes_di drop if exists partition (td >= '%s',td <='%s')'''% (start_date,end_date)
-    #     hive_engine.execute(delete_sql)
-
     try:
         appName = os.path.basename(__file__)
         # 本地模式
@@ -90,8 +76,14 @@ select t1.trade_date,
        if(lag(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.turnover_rate)over(partition by t1.stock_code order by t1.trade_date rows between 4 preceding and current row)) as turnover_rate_5d,
        if(lag(t1.close_price,9)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.turnover_rate)over(partition by t1.stock_code order by t1.trade_date rows between 9 preceding and current row)) as turnover_rate_10d,
        t2.total_market_value,
+       t2.total_market_value-avg(t2.total_market_value)over(partition by t1.trade_date,plate.industry_plate)/std(t2.total_market_value)over(partition by t1.trade_date,plate.industry_plate) as z_total_market_value,
        plate.industry_plate,
        plate.concept_plates,
+       plate.pr_industry_cp,
+       plate.rps_10d,
+       plate.rps_20d,
+       plate.rps_60d,
+       plate.is_concept_rps,
        t2.pe,
        t2.pe_ttm,
        t2.pb,
@@ -156,6 +148,8 @@ where t1.td between '%s' and '%s'
 
         spark.sql("""
 select *,
+       if(rps_10d >=90 and rps_20d >=90 and rps_60d >=90,1,0) as is_industry_rps,
+       if(pr_industry_cp <=10,1,0) as is_pr_industry_cp_10,
        if(interprets rlike '买',1,0) as is_lhb_buy,
        if(interprets rlike '卖',1,0) as is_lhb_sell,
        if(lhb_num_60d>0,1,0) is_lhb_60d,
@@ -195,6 +189,7 @@ select t1.trade_date,
        t1.turnover_rate_5d,
        t1.turnover_rate_10d,
        t1.total_market_value,
+       t1.z_total_market_value,
        t1.industry_plate,
        t1.concept_plates,
        t1.pe,
@@ -233,6 +228,9 @@ select t1.trade_date,
        concat_ws(',',if(t1.is_min_market_value=1,'小市值',null),
                      if(t1.is_mid_market_value=1,'中市值',null),
                      if(t1.is_max_market_value=1,'大市值',null),
+                     if(t1.is_industry_rps=1,'行业rps>=90',null),
+                     if(t1.is_concept_rps=1,'概念rps>=90',null),
+                     if(t1.is_pr_industry_cp_10=1,'行业板块涨跌幅前10%%-',null),
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
@@ -250,6 +248,9 @@ select t1.trade_date,
         t1.is_min_market_value+
         t1.is_mid_market_value+
         t1.is_max_market_value+
+        t1.is_industry_rps+
+        t1.is_concept_rps+
+        t1.is_pr_industry_cp_10+
         t1.is_lhb_buy+
         t1.is_lhb_sell+
         t1.is_lhb_60d+
@@ -263,7 +264,9 @@ select t1.trade_date,
         t1.is_rise_ma_30d+
         t1.is_rise_ma_60d
         ) as stock_label_num,
-       concat_ws(',',if(t1.is_min_market_value=1,'小市值',null),
+       concat_ws(',',if(t1.is_industry_rps=1,'行业rps>=90',null),
+                     if(t1.is_concept_rps=1,'概念rps>=90',null),
+                     if(t1.is_pr_industry_cp_10=1,'行业板块涨跌幅前10%%-',null),
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_rise_volume_2d=1,'连续两天放量-',null),
@@ -272,7 +275,9 @@ select t1.trade_date,
                      if(t1.is_pre_deficiency_decrease=1,'预亏预减-',null)
        ) as sub_factor_names,
        (
-        t1.is_min_market_value+
+        t1.is_industry_rps+
+        t1.is_concept_rps-
+        t1.is_pr_industry_cp_10+
         t1.is_lhb_buy-
         t1.is_lhb_sell-
         -- 存在包含与被包含关系
@@ -303,6 +308,7 @@ left join stock.ods_dc_stock_tfp_di tfp
         print(e)
     print('{}：执行完毕！！！'.format(appName))
 
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/dwd/dwd_stock_quotes_di.py all
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/dwd/dwd_stock_quotes_di.py all
 # nohup tmp_ods.py update 20221101 >> my.log 2>&1 &
 # python tmp_ods.py all

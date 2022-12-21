@@ -17,6 +17,7 @@ pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
+# 废弃 多分区太慢了 不如临时表 单分区可以
 def merge_partition(tableName):
     """多进程才需要"""
     appName = os.path.basename(__file__)

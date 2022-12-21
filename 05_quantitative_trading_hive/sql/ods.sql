@@ -2,8 +2,8 @@ create database stock;
 use stock;
 
 -- TODO =========================================================  xx  =====================================================================
-drop table if exists ods_dc_stock_concept_plate_name_di;
-create table if not exists ods_dc_stock_concept_plate_name_di
+drop table if exists ods_dc_stock_concept_plate_rt_di;
+create table if not exists ods_dc_stock_concept_plate_rt_di
 (
     trade_date                   date comment '交易日期',
     concept_plate_code           string comment '概念板块代码',
@@ -24,8 +24,8 @@ create table if not exists ods_dc_stock_concept_plate_name_di
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-drop table if exists ods_dc_stock_concept_plate_di;
-create table if not exists ods_dc_stock_concept_plate_di
+drop table if exists ods_dc_stock_concept_plate_cons_di;
+create table if not exists ods_dc_stock_concept_plate_cons_di
 (
     trade_date    date comment '交易日期',
     stock_code    string comment '股票代码',
@@ -38,8 +38,30 @@ create table if not exists ods_dc_stock_concept_plate_di
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-drop table if exists ods_dc_stock_industry_plate_di;
-create table if not exists ods_dc_stock_industry_plate_di
+drop table if exists ods_dc_stock_concept_plate_hist_di;
+create table if not exists ods_dc_stock_concept_plate_hist_di
+(
+    trade_date     date comment '交易日期',
+    concept_plate  string comment '行业板块名称',
+    open_price     decimal(20, 4) comment '开盘价',
+    close_price    decimal(20, 4) comment '收盘价',
+    high_price     decimal(20, 4) comment '最高价',
+    low_price      decimal(20, 4) comment '最低价',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    change_amount  decimal(20, 4) comment '涨跌额',
+    volume         bigint comment '成交量',
+    turnover       decimal(20, 4) comment '成交额',
+    amplitude      decimal(20, 4) comment '振幅',
+    turnover_rate  decimal(20, 4) comment '换手率',
+    update_time                  timestamp comment '更新时间'
+) comment '东方财富-沪深板块-概念板块-历史行情数据'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
+drop table if exists ods_dc_stock_industry_plate_cons_di;
+create table if not exists ods_dc_stock_industry_plate_cons_di
 (
     trade_date    date comment '交易日期',
     stock_code     string comment '股票代码',
@@ -52,8 +74,8 @@ create table if not exists ods_dc_stock_industry_plate_di
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-drop table if exists ods_dc_stock_industry_plate_name_di;
-create table if not exists ods_dc_stock_industry_plate_name_di
+drop table if exists ods_dc_stock_industry_plate_rt_di;
+create table if not exists ods_dc_stock_industry_plate_rt_di
 (
     trade_date                   date comment '交易日期',
     industry_plate_code          string comment '行业板块代码',
@@ -73,6 +95,30 @@ create table if not exists ods_dc_stock_industry_plate_name_di
     row format delimited fields terminated by '\t'
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
+
+
+drop table if exists ods_dc_stock_industry_plate_hist_di;
+create table if not exists ods_dc_stock_industry_plate_hist_di
+(
+    trade_date     date comment '交易日期',
+    industry_plate string comment '行业板块名称',
+    open_price     decimal(20, 4) comment '开盘价',
+    close_price    decimal(20, 4) comment '收盘价',
+    high_price     decimal(20, 4) comment '最高价',
+    low_price      decimal(20, 4) comment '最低价',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    change_amount  decimal(20, 4) comment '涨跌额',
+    volume         bigint comment '成交量',
+    turnover       decimal(20, 4) comment '成交额',
+    amplitude      decimal(20, 4) comment '振幅',
+    turnover_rate  decimal(20, 4) comment '换手率',
+    update_time                  timestamp comment '更新时间'
+) comment '东方财富-沪深板块-行业板块-历史行情数据'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
 
 drop table if exists ods_dc_stock_quotes_di;
 create table if not exists ods_dc_stock_quotes_di

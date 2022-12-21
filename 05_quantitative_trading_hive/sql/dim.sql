@@ -16,7 +16,7 @@ create table if not exists dim_stock_label
     row format delimited fields terminated by '\t'
     stored as orc tblproperties ('orc.compress' = 'snappy');
 insert into dim_stock_label VALUES
-       ('小市值','总市值<33.3%排名',1,'小市值官网为20~30亿;用percent_rank() <33.3%排名',current_timestamp()),
+       ('小市值','总市值<33.3%排名',0,'小市值官网为20~30亿;用percent_rank() <33.3%排名',current_timestamp()),
        --均线的标签要不要删除？
        ('上穿5日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
        ('上穿10日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
@@ -31,6 +31,16 @@ insert into dim_stock_label VALUES
        ('最近60天龙虎榜','东财龙虎榜',0,null,current_timestamp()),
        ('预盈预增','概率板标签',1,null,current_timestamp()),
        ('预亏预减-','概率板标签',1,null,current_timestamp()),
+
+       ('行业rps>=90','行业板块三线欧奈尔rps>=90',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
+       ('概念rps>=90','概念板块三线欧奈尔rps>=90',1,null,current_timestamp()),
+       ('行业板块涨跌幅前10%%-','百分比排序 desc',1,null,current_timestamp()),
+
+       ('rsi_6d超卖','rsi_6d<=20 超卖区 则买入',1,'RSI = 100 × 前N日漲幅的平均值 ÷ ( 前N日漲幅的平均值 + 前N日跌幅的平均值 )',current_timestamp()),
+       ('rsi_6d超买-','rsi_6d>=80 超买区 则卖出',1,null,current_timestamp()),
+
+
+
 
        ('adtm买入信号','',0,null,current_timestamp()),
        ('boll买入信号','',0,null,current_timestamp()),
@@ -77,7 +87,7 @@ create table if not exists dim_stock_strategy
 ) comment '股票策略'
     row format delimited fields terminated by '\t'
     stored as orc tblproperties ('orc.compress' = 'snappy');
-insert into dim_stock_strategy values ('小市值+PEG+EBIT+',null,null,null,null,null,current_timestamp());
+
 
 
 drop table if exists dim_dc_stock_plate_di;
@@ -88,6 +98,12 @@ create table if not exists dim_dc_stock_plate_di
     stock_name     string comment '股票名称',
     industry_plate string comment '行业板块',
     concept_plates string comment '概念板块 ,拼接',
+    pr_industry_cp decimal(20, 15) comment '行业涨跌幅排名 desc',
+    rps_5d    decimal(20, 15) comment '欧奈尔rps_5d',
+    rps_10d    decimal(20, 15) comment '欧奈尔rps_10d',
+    rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
+    rps_60d    decimal(20, 15) comment '欧奈尔rps_60d',
+    is_concept_rps int comment '是否概念三线欧奈尔rps>=90',
     update_time    timestamp comment '更新时间'
 ) comment ' 东方财富-板块维表'
     partitioned by (td date comment '分区_交易日期')

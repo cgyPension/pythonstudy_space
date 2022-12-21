@@ -6,7 +6,8 @@ import pandas as pd
 import warnings
 from sqlalchemy import create_engine
 import akshare as ak
-
+import seaborn as sns
+import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
 # 输出显示设置
 pd.options.display.max_rows=None
@@ -493,8 +494,9 @@ def test_score():
                       'x2': [4, 3, 2, 1],
                       'x3': [3, 2, 4, 1]})
 
-    df['x1_max-min'] = (df['x1'] - df['x1'].min()) / (df['x1'].max() - df['x1'].min())
+    df['x2_max-min'] = (df['x2'] - df['x2'].min()) / (df['x2'].max() - df['x2'].min())
     df['x1_z-score'] = (df['x1'] - df['x1'].mean()) / df['x1'].std()
+    df['x2_z-score'] = (df['x2'] - df['x2'].mean()) / df['x2'].std()
     print(df)
 
 def test_get_dummies():
@@ -551,17 +553,79 @@ def test_query():
 
     print(df.query('xb=="男" & weight > 8'))
 
-
+def test_corr():
+    '''
+    表示了data中的两个变量之间的相关性，取值范围为[-1,1],取值接近-1，表示反相关，类似反比例函数，取值接近1，表正相关。
+    参数说明：
+    method：可选值为{‘pearson’, ‘kendall’, ‘spearman’}
+    pearson：Pearson相关系数来衡量两个数据集合是否在一条线上面，即针对线性数据的相关系数计算，针对非线性数据便会有误差。
+    kendall：用于反映分类变量相关性的指标，即针对无序序列的相关系数，非正太分布的数据
+    spearman：非线性的，非正太分析的数据的相关系数
+    min_periods：样本最少的数据量
+    返回值：各类型之间的相关系数DataFrame表格。
+    '''
+    df = pd.DataFrame([[1, 6, 7, 5, 1], [2, 10, 8, 3, 4], [3, 4, 0, 10, 2]],columns=['val1', 'val2', 'val3', 'val4', 'val5'])
+    print(df)
+    print(df.corr())
+    # 热力图
+    sns.heatmap(df.corr(), linewidths=0.1, vmax=1.0, square=True, linecolor='white', annot=True)
+    plt.show()
     pass
 
-def test_xxx():
-    pass
+def test_groupby():
+    '''
+    默认情况下，NaN数据会被排除在groupby之外，通过设置 dropna=False 可以允许NaN数据：
+     df_dropna.groupby(by=["b"], dropna=True).sum()
+    groupby对象有个groups属性，它是一个key-value字典，key是用来分类的数据，value是分类对应的值。
+    mean()	平均值
+    sum()	求和
+    size()	计算size
+    count()	group的统计
+    std()	标准差
+    var()	方差
+    sem()	均值的标准误
+    describe()	统计信息描述
+    first()	第一个group值
+    last()	最后一个group值
+    nth()	第n个group值
+    min()	最小值
+    max()	最大值
+    '''
+    df = pd.DataFrame(
+        {
+            "A": ["foo", "bar", "foo", "bar", "foo", "bar", "foo", "foo"],
+            "B": ["one", "one", "two", "three", "two", "two", "one", "three"],
+            "C": np.random.randn(8),
+            "D": np.random.randn(8),
+        }
+    )
+    df2 = pd.DataFrame({'company': ["A", "B", "A", "B"], 'age': [1, 4, 3, 2]})
+    print(df2)
+    print(df2.groupby(['company']).get_group('A'))
+    print(df2.groupby('company').agg({'age':'median','age':'mean'}))
+    df2['avg_age'] = df2.groupby('company')['age'].transform('mean')
+    print(df2)
+    grouped = df2.groupby(['company'])
+    for name, group in grouped:
+        print('name',name)
+        print('group',group)
 
-def test_xxx():
-    pass
 
-def test_xxx():
-    pass
+def test_mask():
+    '''
+    mask 替换条件为真的值，语法为：
+    where() 方法替换条件为 False 的值
+    '''
+    df = pd.DataFrame({"A": [5, 3, 3, None],
+                       "B": [11, 2, 4, 3],
+                       "C": [4, 3, 8, 5],
+                       "D": [5, 4, 2, 8]})
+
+    # 大于10，表示满足<=10 条件的被设置为-999
+    print(df.mask(df <= 10, -999))
+    # 大于10，表示不满足<=10 条件的被设置为-1
+    print(df.where(df <= 10, -1))
+
 
 def test_xxx():
     pass
@@ -575,4 +639,4 @@ def test_xxx():
 def test_xxx():
     pass
 if __name__ == '__main__':
-    test_reindex_like()
+    test_score()

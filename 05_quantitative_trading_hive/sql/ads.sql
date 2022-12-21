@@ -23,6 +23,7 @@ create table if not exists ads_stock_suggest_di
     turnover_rate_5d         decimal(20, 4) comment '5日平均换手率',
     turnover_rate_10d        decimal(20, 4) comment '10日平均换手率',
     total_market_value       decimal(20, 4) comment '总市值',
+    z_total_market_value     decimal(20, 4) comment '行业标准差总市值',
     industry_plate           string comment '行业板块',
     concept_plates           string comment '概念板块 ,拼接',
     pe                       decimal(20, 4) comment '市盈率',
@@ -63,7 +64,7 @@ create table if not exists ads_stock_suggest_di
     sub_factor_names             string comment '主观因子标签名称 负面因子后缀用- ,拼接',
     sub_factor_score             int comment '主观因子分数 负面因子后缀用-',
     stock_strategy_name      string comment '股票策略名称 股票标签名称 +拼接',
-    stock_strategy_ranking   string comment '策略内排行 dense_rank',
+    stock_strategy_ranking   int comment '策略内排行 dense_rank',
     holding_yield_2d         decimal(20, 4) comment '持股2日后收益率(%)',
     holding_yield_5d         decimal(20, 4) comment '持股5日后收益率(%)',
     update_time              timestamp comment '更新时间'

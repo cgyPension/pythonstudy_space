@@ -1,29 +1,22 @@
 import os
 import sys
 # 在linux会识别不了包 所以要加临时搜索目录
-from util.udfUtils import registerUDF
-
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-
 from util.CommonUtils import get_spark
-from util.DBUtils import hiveUtil
+from util.myUdfUtils import registerUDF
 
-import warnings
+
 import pandas as pd
 
-warnings.filterwarnings("ignore")
+
 # 输出显示设置
 pd.options.display.max_rows=None
 pd.options.display.max_columns=None
 pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
-
-
-
-
 
 '''
 集群模式
@@ -70,10 +63,10 @@ spark-submit \
 /home/cgy/.local/lib/python3.9/
 '''
 
-# python /opt/code/05_quantitative_trading_hive/bak/test_spark.py
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/bak/test_spark.py
 # nohup python /opt/code/05_quantitative_trading_hive/bak/test_spark.py >> my.log 2>&1 &
 # 本地模式
-# spark-submit /opt/code/05_quantitative_trading_hive/bak/test_spark.py
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/bak/test_spark.py
 # spark-submit test_spark.py
 # spark-submit --conf spark.sql.catalogImplementation=hive test_spark.py
 # os.environ["SPARK_HOME"]="/opt/module/spark-3.2.0"
@@ -85,6 +78,7 @@ if __name__ == '__main__':
     # 本地模式
     spark = get_spark(appName)
 
+
     # todo 有些sql只能hive执行 sql不支持 不能加;号
     # engine = hiveUtil().engine
     # hive_sql="""alter table stock.ods_dc_stock_quotes_di drop if exists partition (td >= '2022-11-07',td <='2022-11-11')"""
@@ -92,7 +86,42 @@ if __name__ == '__main__':
 
     registerUDF(spark)
     spark.sql("""select * from test.student""").show()
+    # spark.sql("""
+    #     select trade_date,
+    #        stock_code,
+    #        stock_name,
+    #        close_price,
+    #        turnover_rate,
+    #        cj_func(close_price,turnover_rate) as cj
+    # from stock.ods_dc_stock_quotes_di
+    # where td >= '2022-12-01'
+    #     """).show()
 
+#     spark.sql("""
+#     select trade_date,
+#        stock_code,
+#        stock_name,
+#        close_price,
+#        turnover_rate,
+#        cj_func(close_price,turnover_rate) as cj,
+#        ta_rsi(close_price,6) as ta,
+#        mt_rsi(close_price,6) as mt
+# from stock.ods_dc_stock_quotes_di
+# where td >= '2022-12-01'
+#     """).show()
+
+    # spark.sql("""
+    #     select trade_date,
+    #        stock_code,
+    #        stock_name,
+    #        close_price,
+    #        turnover_rate,
+    #        cj_func(close_price,turnover_rate) as cj,
+    #        ta_rsi(close_price,6)over(partition by stock_code order by trade_date asc) as ta,
+    #        mt_rsi(close_price,6)over(partition by stock_code order by trade_date asc) as mt
+    # from stock.ods_dc_stock_quotes_di
+    # where td >= '2022-12-01'
+    #     """).show()
 
     print('{}：执行完毕！！！'.format(appName))
     # 新浪财经的股票交易日历数据

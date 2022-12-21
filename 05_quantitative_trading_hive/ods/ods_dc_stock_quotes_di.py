@@ -124,7 +124,8 @@ def get_data(ak_code, ak_name, period, start_date, end_date, adjust):
 
             df['stock_name'] = ak_name
             df['update_time'] = datetime.now()
-            df['日期'] = pd.to_datetime(df['日期'])
+            # df['日期'] = pd.to_datetime(df['日期'])
+            df['日期'] = df['日期'].apply(lambda x: pd.to_datetime(x).date())
             df['td'] = df['日期']
             df.rename(columns={'日期': 'trade_date', '开盘': 'open_price', '收盘': 'close_price', '最高': 'high_price',
                                '最低': 'low_price', '成交量': 'volume', '成交额': 'turnover', '振幅': 'amplitude',

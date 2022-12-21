@@ -44,6 +44,8 @@ def test_std():
     '''
     numpy.std() 求标准差的时候默认是除以 n 的，即是有偏的，np.std无偏样本标准差方式为加入参数 ddof = 1；
     pandas.std() 默认是除以n-1 的，即是无偏的，如果想和numpy.std() 一样有偏，需要加上参数ddof=0 ，即pandas.std(ddof=0) ；
+    hive是除以n
+    sparksql是除以n-1的
 
     公式意义 ：所有数减去平均值,它的平方和除以数的个数（或个数减一),再把所得值开根号,就是1/2次方,得到的数就是这组数的标准差。
     '''
@@ -96,9 +98,14 @@ def test_fillna():
 
 
 def test_xxx():
-    pass
+    '''eval() 函数用来执行一个字符串表达式，并返回表达式的值。
+       eval() 执行完要返回结果，而 exec() 执行完不返回结果'''
+    x = 7
+    print(eval('3 * x'))
+    print(eval('pow(2,2)'))
 
-def test_xxx():
+def test_exec():
+
     pass
 
 def test_xxx():
