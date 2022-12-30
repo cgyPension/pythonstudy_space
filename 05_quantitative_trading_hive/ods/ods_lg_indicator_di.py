@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import random
 import sys
 import time
 import warnings
@@ -23,7 +24,6 @@ from util.CommonUtils import get_process_num, get_code_group, get_code_list, get
 
 def multiprocess_run(code_list, start_date,end_date,hive_engine, process_num):
     appName = os.path.basename(__file__)
-    # 本地模式
     spark = get_spark(appName)
     code_group = get_code_group(process_num, code_list)
     result_list = []
@@ -74,8 +74,24 @@ def get_group_data(code_list, start_date, i, n, total):
     return pd_df
 
 
+def get_group_data_write(code_list, start_date):
+    appName = os.path.basename(__file__)
+    spark = get_spark(appName)
+    pd_df = pd.DataFrame()
+    for codes in code_list:
+        ak_code = codes[0]
+        ak_name = codes[1]
+        # print('ods_lg_indicator_di：{}启动,父进程为{}：第{}组/共{}组，{}个)正在处理{}...'.format(os.getpid(), os.getppid(), i, n, total, ak_name))
+
+        df = get_data(ak_code, ak_name,start_date)
+        if df.empty:
+            continue
+        pd_df = pd_df.append(df)
+    spark_df = spark.createDataFrame(pd_df)
+    spark_df.repartition(1).write.insertInto('stock.ods_lg_indicator_di', overwrite=True)
+
 def get_data(ak_code, ak_name,start_date):
-    # time.sleep(1)
+    # time.sleep(random.randint(5,10))
     for i in range(1):
         try:
             # 乐咕乐股-A 股个股指标表 没有京股数据会是随机数
@@ -106,7 +122,7 @@ def get_data(ak_code, ak_name,start_date):
 
 # nohup python ods_lg_indicator_di.py update 20221010 >> my.log 2>&1 &
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py all
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py update 20221122 20221123
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py update 20221226 20221226
 if __name__ == '__main__':
     code_list = get_code_list()
     start_date = date.today().strftime('%Y%m%d')
@@ -130,6 +146,6 @@ if __name__ == '__main__':
     process_num = get_process_num()
 
     start_time = time.time()
-    multiprocess_run(code_list, start_date,end_date, hive_engine, 3)
+    multiprocess_run(code_list, start_date,end_date, hive_engine, 6)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

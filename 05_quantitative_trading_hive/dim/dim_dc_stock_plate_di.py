@@ -3,7 +3,8 @@ import sys
 import time
 import warnings
 import pandas as pd
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+import akshare as ak
 # 在linux会识别不了包 所以要加临时搜索目录
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -26,6 +27,16 @@ def get_data(start_date, end_date):
         spark = get_spark(appName)
         start_date = pd.to_datetime(start_date).date()
         end_date = pd.to_datetime(end_date).date()
+
+        # 增量 因为rps_60d 要提前60个交易日
+        s_date = '20210101'
+        td_df = ak.tool_trade_date_hist_sina()
+        daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
+        daterange_df = daterange_df.iloc[-61:, 0].reset_index(drop=True)
+        if daterange_df.empty:
+            start_date_l60d = pd.to_datetime(start_date).date()
+        else:
+            start_date_l60d = pd.to_datetime(daterange_df[0]).date()
 
         # [0,100] 排序后 归一化
         # python 代码实现, value 是list
@@ -55,7 +66,7 @@ t2 as (select trade_date,
       percent_rank()over(partition by trade_date order by rps_60d asc)*100 as rps_60d
 from t1)
 select * from t2
-               """ % (start_date, end_date)
+               """ % (start_date_l60d, end_date)
         ).createOrReplaceTempView('tmp_dim_industry_rps')
 
         spark.sql(
@@ -88,7 +99,7 @@ left join tmp_t2
         and t1.concept_plate =tmp_t2.concept_plate
 where t1.td between '%s' and '%s'
 group by t1.trade_date,t1.stock_code,t1.stock_name
-               """ % (start_date, end_date,start_date, end_date)
+               """ % (start_date_l60d, end_date,start_date, end_date)
         ).createOrReplaceTempView('tmp_dim_concept_rps')
 
         sql = '''
@@ -129,6 +140,7 @@ group by t1.trade_date,t1.stock_code,t1.stock_name
 
         spark_df = spark.sql(sql)
         spark_df.repartition(1).write.insertInto('stock.dim_dc_stock_plate_di', overwrite=True)
+        spark.stop
         print('{}：执行完毕！！！'.format(appName))
     except Exception as e:
         print(e)

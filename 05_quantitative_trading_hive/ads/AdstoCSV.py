@@ -61,9 +61,10 @@ def get_data(start_date,stock_strategy_name='all量化投资操作'):
 # python AdsSendMail.py
 if __name__ == '__main__':
     start_time = time.time()
-    start_date = date.today()
+    # start_date = date.today()
+    start_date = '2022-12-27'
     # get_data(start_date,'小市值+市盈率TTM+换手率')
-    get_data(start_date,'小市值+PEG+换手率')
-    get_data(start_date,'国企中字+PEG+换手率')
+    # get_data(start_date,'小市值+PEG+换手率')
+    get_data(start_date,'行业rps+小市值+换手率')
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

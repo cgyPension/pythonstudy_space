@@ -24,15 +24,14 @@ pd.set_option('display.unicode.east_asian_width', True)
 
 def get_data(start_date, end_date):
     appName = os.path.basename(__file__)
-    # 本地模式
     spark = get_spark(appName)
 
     pd_df = pd.DataFrame()
     daterange = pd.date_range(start_date, end_date)
     for single_date in daterange:
         try:
-            # 两市停复牌
-            df = ak.stock_tfp_em(date=single_date.strftime("%Y%m%d"))
+            #  东方财富网-行情中心-涨停板行情-强势股池
+            df = ak.stock_zt_pool_strong_em(date=single_date.strftime("%Y%m%d"))
             # print('ods_dc_stock_tfp_di：正在处理{}...'.format(single_date))
 
             if df.empty:
@@ -43,38 +42,22 @@ def get_data(start_date, end_date):
             df['td'] = df['trade_date']
             df['update_time'] = pd.to_datetime(datetime.now())
 
-            df.rename(columns={'名称': 'stock_name','停牌时间': 'suspension_time','停牌截止时间': 'suspension_deadline','停牌期限': 'suspension_period','停牌原因': 'suspension_reason','所属市场': 'belongs_market','预计复牌时间': 'estimated_resumption_time'}, inplace=True)
-            df = df[['trade_date', 'stock_code', 'stock_name','suspension_time', 'suspension_deadline','suspension_period','suspension_reason','belongs_market','estimated_resumption_time','update_time','td']]
+            df.rename(columns={'名称':'stock_name','涨跌幅':'change_percent','最新价':'new_price','涨停价':'zt_price','成交额':'turnover','流通市值':'circulating_market_value','总市值':'total_market_value','换手率':'turnover_rate','涨速':'speed_up','是否新高':'is_new_g','量比':'volume_ratio_5d','涨停统计':'zt_tj','入选理由':'selection_reason','所属行业':'industry_plate'}, inplace=True)
+            df = df[['trade_date','stock_code','stock_name','change_percent','new_price','zt_price','turnover','circulating_market_value','total_market_value','turnover_rate','speed_up','is_new_g','volume_ratio_5d','zt_tj','selection_reason','industry_plate','update_time','td']]
             # MySQL无法处理nan
             df = df.replace({np.nan: None})
             pd_df = pd_df.append(df)
         except Exception as e:
             print(e)
 
-    # schema = StructType([
-    #     StructField("trade_date", DateType(), True),
-    #     StructField("stock_code", StringType(), True),
-    #     StructField("stock_name", StringType(), True),
-    #     StructField("suspension_time", StringType(), True),
-    #     StructField("suspension_deadline", StringType(), True),
-    #     StructField("suspension_period", StringType(), True),
-    #     StructField("suspension_reason", StringType(), True),
-    #     StructField("belongs_market", StringType(), True),
-    #     StructField("estimated_resumption_time", StringType(), True),
-    #     StructField("update_time", TimestampType(), True),
-    #     StructField("td", DateType(), True)
-    # ])
-    # spark_df = spark.createDataFrame(pd_df,schema)
     spark_df = spark.createDataFrame(pd_df)
-    spark_df.repartition(1).write.insertInto('stock.ods_dc_stock_tfp_di', overwrite=True)
-    spark.stop
+    spark_df.repartition(1).write.insertInto('stock.ods_stock_strong_pool_di', overwrite=True)
     print('{}：执行完毕！！！'.format(appName))
 
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_tfp_di.py all
-# nohup python ods_dc_stock_tfp_di.py update 20221010 20221010 >> my.log 2>&1 &
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_stock_strong_pool_di.py all
+# nohup python ods_stock_strong_pool_di.py update 20221010 20221010 >> my.log 2>&1 &
 # python ods_dc_stock_tfp_di.py all
 if __name__ == '__main__':
-
     if len(sys.argv) == 1:
         print("请携带一个参数 all update 更新要输入开启日期 结束日期 不输入则默认当天")
     elif len(sys.argv) == 2:

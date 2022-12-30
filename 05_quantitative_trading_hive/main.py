@@ -1,20 +1,20 @@
 #-*- coding:utf-8 -*-
 import os
 import sys
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 import time
 from datetime import date
 # 在linux会识别不了包 所以要加临时搜索目录
 from ads import ads_stock_suggest_di, AdsSendMail, AdstoCSV
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
-
 from dim import dim_dc_stock_plate_di
-from dwd import dwd_stock_quotes_di
+from dwd import dwd_stock_quotes_di, dwd_stock_zt_di, dwd_stock_strong_di
 from ods import ods_dc_stock_quotes_di, ods_dc_stock_tfp_di, ods_lg_indicator_di, \
     ods_dc_stock_concept_plate_rt_di, ods_dc_stock_industry_plate_rt_di, ods_dc_stock_industry_plate_cons_di, \
     ods_dc_stock_concept_plate_cons_di, ods_stock_lrb_em_di, ods_financial_analysis_indicator_di, \
-    ods_stock_lhb_detail_em_di, ods_dc_stock_industry_plate_hist_di, ods_dc_stock_concept_plate_hist_di
+    ods_stock_lhb_detail_em_di, ods_dc_stock_industry_plate_hist_di, ods_dc_stock_concept_plate_hist_di, \
+    ods_trade_date_hist_sina_df, ods_stock_zt_pool_di, ods_stock_strong_pool_di
 from util.CommonUtils import get_code_list, get_process_num
 from util.DBUtils import sqlalchemyUtil, hiveUtil
 
@@ -47,37 +47,44 @@ def task_update_daily():
     # 有单独用hive的 不能用spark-submit提交
     # 程序开始运行时间
     start_time = time.time()
+
+    # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑 有时候会漏数据 总市值不能为空
+    ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, 5)
+
     # 前复权 一般季度时间后一周内会修改旧数据 这时候要全量重跑这个ods
     # 如果进行价值投资，建议采用后复权 适合回测
     # 如果进行技术分析，最好用前复权 适合指导实盘 会引入了未来函数？
-    # ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
-    # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑 有时候会漏数据 总市值不能为空
-    ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, 3)
-    # ods_stock_lrb_em_di.get_data(start_date, end_date)
+    ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
+    ods_stock_lrb_em_di.get_data(start_date, end_date)
     # 这个年报全量很慢 平时不能全量跑  20200331", "20200630", "20200930", "20201231" 报告日期才跑
     # ods_financial_analysis_indicator_di.multiprocess_run(code_list, start_date, hive_engine)
 
     # 其他
-    # ods_stock_lhb_detail_em_di.get_data(start_date, end_date)
+    ods_stock_lhb_detail_em_di.get_data(start_date, end_date)
     # 停复牌8点左右跑 不然有些数据会后补
-    # ods_dc_stock_tfp_di.get_data(start_date, end_date)
+    ods_dc_stock_tfp_di.get_data(start_date, end_date)
+    ods_trade_date_hist_sina_df.get_data()
+    ods_stock_zt_pool_di.get_data(start_date, end_date)
+    ods_stock_strong_pool_di.get_data(start_date, end_date)
 
     # 板块
-    # ods_dc_stock_industry_plate_cons_di.multiprocess_run(start_date, process_num)
-    # ods_dc_stock_concept_plate_cons_di.multiprocess_run(start_date, process_num)
-    # ods_dc_stock_industry_plate_rt_di.get_data(start_date)
-    # ods_dc_stock_concept_plate_rt_di.get_data(start_date)
-    # ods_dc_stock_industry_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
-    # ods_dc_stock_concept_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
-    #
-    #
-    # dim_dc_stock_plate_di.get_data(start_date, end_date)
-    #
-    # dwd_stock_quotes_di.get_data(start_date, end_date)
-    # ads_stock_suggest_di.get_data(start_date, end_date)
+    ods_dc_stock_industry_plate_cons_di.multiprocess_run(start_date, process_num)
+    ods_dc_stock_concept_plate_cons_di.multiprocess_run(start_date, process_num)
+    ods_dc_stock_industry_plate_rt_di.get_data(start_date)
+    ods_dc_stock_concept_plate_rt_di.get_data(start_date)
+    ods_dc_stock_industry_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
+    ods_dc_stock_concept_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
+    dim_dc_stock_plate_di.get_data(start_date, end_date)
+
+    # 这个dwd有先后顺序
+    dwd_stock_quotes_di.get_data(start_date, end_date)
+    dwd_stock_zt_di.get_data(start_date, end_date)
+    dwd_stock_strong_di.get_data(start_date, end_date)
+
+    ads_stock_suggest_di.get_data(start_date, end_date)
     # AdstoCSV.get_data(start_date,'小市值+市盈率TTM+换手率')
     # AdstoCSV.get_data(start_date,'小市值+PEG+换手率')
-    # AdstoCSV.get_data(start_date,'国企中字+PEG+换手率')
+    # AdstoCSV.get_data(start_date,'行业rps+小市值+换手率')
     # AdsSendMail.get_data()
 
     # 程序结束运行时间
@@ -93,8 +100,8 @@ def task_update_daily():
 # sched.start()
 
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update 20221227 20221227
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/main.py all
 # nohup /opt/code/05_quantitative_trading_hive/main.py update 20221010 20221010 >> my.log 2>&1 &
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update 20221122 20221122
 if __name__ == '__main__':
     task_update_daily()

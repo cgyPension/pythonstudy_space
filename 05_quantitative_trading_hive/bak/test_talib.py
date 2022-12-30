@@ -37,7 +37,7 @@ def registerUDF(spark):
 # 这个要用远程调试执行 不然本地读不了linux
 if __name__ == '__main__':
     appName = os.path.basename(__file__)
-    df = ak.stock_zh_a_hist(symbol='002811', period='daily', start_date='20221201', end_date='20221219',
+    df = ak.stock_zh_a_hist(symbol='600104', period='daily', start_date='20221201', end_date='20221223',
                             adjust='qfq')
 
     CLOSE = df['收盘'].values
@@ -52,6 +52,7 @@ if __name__ == '__main__':
     df['ma10'] = MA10
     df['ta_rsi_6d']=ta.RSI(CLOSE, timeperiod=6)
     df['mt_rsi_6d']=mt_rsi(CLOSE,6)
+
     print(df)
 
     print('BTC5日均线', MA5[-1])  # 只取最后一个数

@@ -23,7 +23,6 @@ create table if not exists dim_hc_strategy_main
     yield_22d          decimal(20, 2) comment '近1月收益率',
     yield_66d          decimal(20, 2) comment '近3月收益率',
     annual_max_retrace decimal(20, 2) comment '年化收益率/最大回撤',
-    is_benchmark       int comment '是否基准，1是 0否',
     update_time        timestamp comment '更新时间'
 ) comment '策略回测主表'
     partitioned by (hc_strategy string comment '分区_股票策略i')
@@ -46,7 +45,6 @@ drop table if exists dim_hc_strategy_cc;
 create table if not exists dim_hc_strategy_cc
 (
     trade_date  date comment '交易日期',
-    end_cash    decimal(20, 2) comment '期末资金',
     cc          decimal(20, 2) comment '持仓比',
     update_time timestamp comment '更新时间'
 ) comment '持仓比'

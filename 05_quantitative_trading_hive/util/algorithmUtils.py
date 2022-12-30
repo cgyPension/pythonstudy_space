@@ -3,6 +3,8 @@ import os
 import sys
 import pandas as pd
 import numpy as np
+import talib as ta
+import MyTT as mt
 # 在linux会识别不了包 所以要加临时搜索目录
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
@@ -54,7 +56,16 @@ def get_holding_yield_tj(df):
     dict['sharp_ratio'] = round(np.sqrt(len(exReturn)) * exReturn.mean() / exReturn.std(), 2)
     return dict
 
-def test_xxx():
+
+def mt_rsi(close:pd.Series,n):
+    dif = close - mt.REF(close, 1)
+    return mt.RD(mt.SMA(mt.MAX(dif, 0), n) / mt.SMA(mt.ABS(dif), n) * 100)
+
+def ta_rsi(close:pd.Series,n):
+    return ta.RSI(close, timeperiod=n)
+
+def dwd_factor(df):
+
     pass
 
 def test_xxx():

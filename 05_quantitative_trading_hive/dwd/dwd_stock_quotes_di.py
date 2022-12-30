@@ -18,8 +18,6 @@ pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 from util.CommonUtils import get_process_num, get_spark
 
-
-# 太多任务一起执行 mysql不释放内存 要分开断开连接重连
 def get_data(start_date, end_date):
     try:
         appName = os.path.basename(__file__)
@@ -121,7 +119,9 @@ select t1.trade_date,
        -- 收益率公式优化 (后/前)-1
        -- if(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date)-lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date))*100 as holding_yield_2d,
        if(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,2)over(partition by t1.stock_code order by t1.trade_date)/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date)-1)*100) as holding_yield_2d,
-       if(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date)/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date)-1)*100) as holding_yield_5d
+       if(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date) is null or t1.open_price = 0,null,(lead(t1.close_price,5)over(partition by t1.stock_code order by t1.trade_date)/lead(t1.open_price,1)over(partition by t1.stock_code order by t1.trade_date)-1)*100) as holding_yield_5d,
+       t6.lx_sealing_nums,
+       t7.selection_reason
 from stock.ods_dc_stock_quotes_di t1
 left join stock.ods_lg_indicator_di t2
         on t1.trade_date = t2.trade_date
@@ -139,35 +139,83 @@ left join  t4
 left join t5
        on t1.trade_date = t5.trade_date
             and t1.stock_code = t5.stock_code
+left join stock.ods_stock_zt_pool_di t6
+       on t1.trade_date = t6.trade_date
+            and t1.stock_code = t6.stock_code
+            and t6.td between '%s' and '%s'
+left join stock.ods_stock_strong_pool_di t7
+       on t1.trade_date = t7.trade_date
+            and t1.stock_code = t7.stock_code
+            and t7.td between '%s' and '%s'      
 left join stock.dim_dc_stock_plate_di plate
         on t1.trade_date = plate.trade_date
         and t1.stock_code = plate.stock_code
         and plate.td between '%s' and '%s'
 where t1.td between '%s' and '%s'
-        """% (start_date,end_date,start_date,end_date,start_date,end_date,start_date,end_date)).createOrReplaceTempView('tmp_dwd_01')
+        """% (start_date,end_date,start_date,end_date,start_date,end_date,start_date,end_date,start_date,end_date,start_date,end_date)).createOrReplaceTempView('tmp_dwd_01')
 
         spark.sql("""
+--因为股票交易日不连续，不能用日期等差的方式算连续
+with tmp_lx_ljqs_01 as (
+select trade_date,
+       stock_code,
+       date_id
+from(
+      select t1.trade_date,
+       t1.stock_code,
+       t1.stock_name,
+       t1.change_percent,
+       if(lag(t1.volume,1)over(partition by t1.stock_code order by t1.trade_date) is null or t1.volume is null,null,t1.volume/lag(t1.volume,1,null)over(partition by t1.stock_code order by t1.trade_date)) as volume_ratio_1d,
+       t2.date_id
+from stock.ods_dc_stock_quotes_di t1
+left join stock.ods_trade_date_hist_sina_df t2
+        on t1.trade_date = t2.trade_date
+        )
+where volume_ratio_1d>1
+    and change_percent>0
+),
+tmp_lx_ljqs_02 as (
 select *,
-       if(rps_10d >=90 and rps_20d >=90 and rps_60d >=90,1,0) as is_industry_rps,
-       if(pr_industry_cp <=10,1,0) as is_pr_industry_cp_10,
-       if(interprets rlike '买',1,0) as is_lhb_buy,
-       if(interprets rlike '卖',1,0) as is_lhb_sell,
-       if(lhb_num_60d>0,1,0) is_lhb_60d,
-       if(percent_rank()over(partition by trade_date order by total_market_value)<0.333,1,0) as is_min_market_value,
-       if(percent_rank()over(partition by trade_date order by total_market_value) >=0.333 and percent_rank()over(partition by trade_date order by total_market_value) <0.666,1,0) as is_mid_market_value,
-       if(percent_rank()over(partition by trade_date order by total_market_value) >=0.666,1,0) as is_max_market_value,
-       if(lag(volume_ratio_1d,1)over(partition by stock_code order by trade_date) >1 and volume_ratio_1d >1,1,0) as is_rise_volume_2d,
-       if(lag(volume_ratio_1d,1)over(partition by stock_code order by trade_date) >1 and volume_ratio_1d >1
-           and lag(close_price,1)over(partition by stock_code order by trade_date) < lag(open_price,1)over(partition by stock_code order by trade_date)
-                        and close_price<open_price,1,0) as is_rise_volume_2d_low,
-       if(concept_plates rlike '预盈预增',1,0) as is_pre_profit_increase,
-       if(concept_plates rlike '预亏预减',1,0) as is_pre_deficiency_decrease,
-       if(high_price>ma_5d,1,0) as is_rise_ma_5d,
-       if(high_price>ma_10d,1,0) as is_rise_ma_10d,
-       if(high_price>ma_20d,1,0) as is_rise_ma_20d,
-       if(high_price>ma_30d,1,0) as is_rise_ma_30d,
-       if(high_price>ma_60d,1,0) as is_rise_ma_60d
-from tmp_dwd_01
+       rank()over(partition by stock_code order by date_id) rk
+from tmp_lx_ljqs_01
+),
+tmp_lx_ljqs_03 as (
+select *,
+       (date_id-rk) as flag
+from tmp_lx_ljqs_02
+),
+tmp_lx_ljqs_04 as (
+select trade_date,
+       stock_code,
+       count(1)over(partition by stock_code,flag order by trade_date) as ct
+from tmp_lx_ljqs_03
+),
+tmp_lx_ljqs_05 as (
+select *,
+       '连续'||ct||'天量价齐升' as lx_ljqs_days
+from tmp_lx_ljqs_04)
+select t1.*,
+       if(t1.rps_10d >=90 and t1.rps_20d >=90 and t1.rps_60d >=90,1,0) as is_industry_rps,
+       if(t1.pr_industry_cp <=10,1,0) as is_pr_industry_cp_10,
+       if(t1.interprets rlike '买',1,0) as is_lhb_buy,
+       if(t1.interprets rlike '卖',1,0) as is_lhb_sell,
+       if(t1.lhb_num_60d>0,1,0) is_lhb_60d,
+       if(percent_rank()over(partition by t1.trade_date order by t1.total_market_value)<0.333,1,0) as is_min_market_value,
+       if(percent_rank()over(partition by t1.trade_date order by t1.total_market_value) >=0.333 and percent_rank()over(partition by t1.trade_date order by t1.total_market_value) <0.666,1,0) as is_mid_market_value,
+       if(percent_rank()over(partition by t1.trade_date order by t1.total_market_value) >=0.666,1,0) as is_max_market_value,
+       if(lag(t1.volume_ratio_1d,1)over(partition by t1.stock_code order by t1.trade_date) >1 and t1.volume_ratio_1d >1,1,0) as is_rise_volume_2d,
+       if(lag(t1.volume_ratio_1d,1)over(partition by t1.stock_code order by t1.trade_date) >1 and t1.volume_ratio_1d >1
+           and lag(t1.change_percent,1)over(partition by t1.stock_code order by t1.trade_date) < 0
+                        and t1.change_percent<0,1,0) as is_rise_volume_2d_low,
+       if(t1.concept_plates rlike '预盈预增',1,0) as is_pre_profit_increase,
+       if(t1.concept_plates rlike '预亏预减',1,0) as is_pre_deficiency_decrease,
+       if(t1.lx_sealing_nums is not null,1,0) as is_zt,
+       if(t1.selection_reason is not null,1,0) as is_strong,
+       t2.lx_ljqs_days
+from tmp_dwd_01 t1
+left join tmp_lx_ljqs_05 t2
+        on t1.trade_date = t2.trade_date
+            and t1.stock_code = t2.stock_code
         """).createOrReplaceTempView('tmp_dwd_02')
 
         spark_df = spark.sql("""
@@ -234,15 +282,12 @@ select t1.trade_date,
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
-                     if(t1.is_rise_volume_2d=1,'连续两天放量-',null),
-                     if(t1.is_rise_volume_2d_low=1,'连续两天放量且低收-',null),
+                     if(t1.is_rise_volume_2d_low=1,'连续2天量升价跌-',null),
                      if(t1.is_pre_profit_increase=1,'预盈预增',null),
                      if(t1.is_pre_deficiency_decrease=1,'预亏预减-',null),
-                     if(t1.is_rise_ma_5d=1,'上穿5日均线',null),
-                     if(t1.is_rise_ma_10d=1,'上穿10日均线',null),
-                     if(t1.is_rise_ma_20d=1,'上穿20日均线',null),
-                     if(t1.is_rise_ma_30d=1,'上穿30日均线',null),
-                     if(t1.is_rise_ma_60d=1,'上穿60日均线',null)
+                     if(t1.is_zt=1,'当天涨停',null),
+                     if(t1.is_strong=1,'当天强势股',null),
+                     t1.lx_ljqs_days
        ) as stock_label_names,
        (
         t1.is_min_market_value+
@@ -254,23 +299,19 @@ select t1.trade_date,
         t1.is_lhb_buy+
         t1.is_lhb_sell+
         t1.is_lhb_60d+
-        t1.is_rise_volume_2d+
         t1.is_rise_volume_2d_low+
         t1.is_pre_profit_increase+
         t1.is_pre_deficiency_decrease+
-        t1.is_rise_ma_5d+
-        t1.is_rise_ma_10d+
-        t1.is_rise_ma_20d+
-        t1.is_rise_ma_30d+
-        t1.is_rise_ma_60d
+        t1.is_zt+
+        t1.is_strong+
+        if(t1.lx_ljqs_days is not null,1,0)
         ) as stock_label_num,
        concat_ws(',',if(t1.is_industry_rps=1,'行业rps>=90',null),
                      if(t1.is_concept_rps=1,'概念rps>=90',null),
                      if(t1.is_pr_industry_cp_10=1,'行业板块涨跌幅前10%%-',null),
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
-                     if(t1.is_rise_volume_2d=1,'连续两天放量-',null),
-                     if(t1.is_rise_volume_2d_low=1,'连续两天放量且低收-',null),
+                     if(t1.is_rise_volume_2d_low=1,'连续2天量升价跌-',null),
                      if(t1.is_pre_profit_increase=1,'预盈预增',null),
                      if(t1.is_pre_deficiency_decrease=1,'预亏预减-',null)
        ) as sub_factor_names,
@@ -280,8 +321,7 @@ select t1.trade_date,
         t1.is_pr_industry_cp_10+
         t1.is_lhb_buy-
         t1.is_lhb_sell-
-        -- 存在包含与被包含关系
-        if(t1.is_rise_volume_2d = 1 or t1.is_rise_volume_2d_low = 1 ,1,0)+
+        t1.is_rise_volume_2d_low+
         t1.is_pre_profit_increase-
         t1.is_pre_deficiency_decrease
         ) as sub_factor_score,
@@ -303,7 +343,7 @@ left join stock.ods_dc_stock_tfp_di tfp
         """% (start_date,end_date))
          # 默认的方式将会在hive分区表中保存大量的小文件，在保存之前对 DataFrame 用 .repartition() 重新分区，这样就能控制保存的文件数量。这样一个分区只会保存 5 个数据文件。
         spark_df.repartition(1).write.insertInto('stock.dwd_stock_quotes_di', overwrite=True)  # 如果执行不存在这个表，会报错
-
+        spark.stop
     except Exception as e:
         print(e)
     print('{}：执行完毕！！！'.format(appName))

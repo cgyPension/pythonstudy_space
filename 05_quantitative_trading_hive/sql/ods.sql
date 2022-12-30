@@ -251,4 +251,68 @@ create table if not exists ods_stock_lrb_em_di
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
+
+drop table if exists ods_trade_date_hist_sina_df;
+create table if not exists ods_trade_date_hist_sina_df
+(
+    date_id     int comment '日期id',
+    trade_date  date comment '交易日期',
+    update_time timestamp comment '更新时间'
+) comment '新浪财经的股票交易日历数据'
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
+
+drop table if exists ods_stock_zt_pool_di;
+create table if not exists ods_stock_zt_pool_di
+(
+    trade_date     date comment '交易日期',
+    stock_code     string comment '股票代码',
+    stock_name     string comment '股票名称',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    new_price    decimal(20, 4) comment '最新价',
+    turnover       decimal(20, 4) comment '成交额',
+    circulating_market_value decimal(20, 4) comment '流通市值',
+    total_market_value decimal(20, 4) comment '总市值',
+    turnover_rate  decimal(20, 4) comment '换手率',
+    Sealing_amount  decimal(20, 4) comment '封板资金',
+    first_Sealing_time  string comment '首次封板时间',
+    last_Sealing_time  string comment '最后封板时间',
+    bomb_Sealing_nums  int comment '炸板数',
+    zt_tj  string comment '涨停统计',
+    lx_Sealing_nums  int comment '连板数',
+    industry_plate string comment '行业板块',
+    update_time    timestamp comment '更新时间'
+) comment '东方财富网-行情中心-涨停板行情-涨停股池'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
+drop table if exists ods_stock_strong_pool_di;
+create table if not exists ods_stock_strong_pool_di
+(
+    trade_date     date comment '交易日期',
+    stock_code     string comment '股票代码',
+    stock_name     string comment '股票名称',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    new_price    decimal(20, 4) comment '最新价',
+    zt_price    decimal(20, 4) comment '涨停价',
+    turnover       decimal(20, 4) comment '成交额',
+    circulating_market_value decimal(20, 4) comment '流通市值',
+    total_market_value decimal(20, 4) comment '总市值',
+    turnover_rate  decimal(20, 4) comment '换手率',
+    speed_up decimal(20, 4) comment '涨速',
+    is_new_g  int comment '是否新高',
+    volume_ratio_5d  decimal(20, 4) comment '量比：过去5个交易日',
+    zt_tj  string comment '涨停统计',
+    selection_reason  int comment '强势股入选理由 1:60日新高, 2:近期多次涨停, 3:60日新高且近期多次涨停',
+    industry_plate string comment '行业板块',
+    update_time    timestamp comment '更新时间'
+) comment '东方财富网-行情中心-涨停板行情-强势股池'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
 --股票指数

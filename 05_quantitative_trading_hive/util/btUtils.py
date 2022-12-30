@@ -1,11 +1,14 @@
 import os
 import sys
+
+from util.CommonUtils import get_spark
+
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 import backtrader as bt
 from backtrader.mathsupport import average
-from datetime import date, datetime
+from datetime import date, datetime,timedelta
 import datetime
 import time
 # 衡量策略绩效指标的库
@@ -111,7 +114,7 @@ def benchmark_analysis(benchmark_df):
     # 收益统计表
     benchmark_dic = algorithmUtils.get_holding_yield_tj(benchmark_df)
 
-    benchmark_an_df = pd.DataFrame([['沪深300', benchmark_dic['yield_td'], benchmark_dic['annual_ret'],None,benchmark_dic['max_drawdown'],benchmark_dic['sharp_ratio'],benchmark_dic['yield_1d'],benchmark_dic['yield_7d'],benchmark_dic['yield_22d'],benchmark_dic['yield_66d']]],
+    benchmark_an_df = pd.DataFrame([['沪深300', benchmark_dic['yield_td'], benchmark_dic['annual_ret'],0.0,benchmark_dic['max_drawdown'],benchmark_dic['sharp_ratio'],benchmark_dic['yield_1d'],benchmark_dic['yield_7d'],benchmark_dic['yield_22d'],benchmark_dic['yield_66d']]],
                                       columns=['策略','累计收益率', '年化收益率', '胜率','最大回撤', '夏普比率','今日收益率','近7天收益率','近1月收益率','近3月收益率'])
 
     return benchmark_df.reset_index(drop=True),benchmark_an_df
@@ -588,6 +591,758 @@ def run_cerebro_dash_pages(rt_list,port):
                          html.Div(
                              children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}    持股周期：{}天     买入规则：排名<={}    年化收益率/最大回撤={}'.format(
                                  start_date, end_date, start_cash, end_cash, hold_day, hold_n, rm),
+                             style=dict(textAlign='center', color='black')),
+                         html.H4('累计收益率走势'),
+                         dcc.Graph(figure=zx_fig, style={'margin-top': '-22px'}),
+                         dcc.Graph(figure=cc_fig, style={'margin-top': '-62px', 'margin-left': '350px'}),
+                         html.H4(children='收益统计', style={'margin-top': '-2px'}),
+                         dash_table.DataTable(
+                             id='收益统计table',
+                             data=analyzer_df.to_dict('records'),
+                             columns=an_columns,
+                             style_data_conditional=(
+                                     [
+                                         {
+                                             'if': {'row_index': 'odd'},
+                                             'backgroundColor': 'rgb(220, 220, 220)',
+                                         }
+                                     ] +
+                                     [
+                                         {
+                                             'if': {
+                                                 'filter_query': '{{{}}} > 0'.format(col),
+                                                 'column_id': col
+                                             },
+                                             'color': '#ff0000'
+                                         } for col in ['累计收益率', '年化收益率', '夏普比率', '今日收益率', '近7天收益率', '近1月收益率', '近3月收益率']
+                                     ] +
+                                     [
+                                         {
+                                             'if': {
+                                                 'filter_query': '{{{}}} < 0'.format(col),
+                                                 'column_id': col
+                                             },
+                                             'color': '#008000'
+                                         } for col in ['累计收益率', '年化收益率', '夏普比率', '今日收益率', '近7天收益率', '近1月收益率', '近3月收益率']
+                                     ]
+                             ),
+                             style_header={
+                                 'font-family': 'Times New Romer',
+                                 'font-weight': 'bold',
+                                 'font-size': 11,
+                                 'text-align': 'center',
+                                 'backgroundColor': 'rgb(210, 210, 210)',
+                                 'color': 'black',
+                             },
+                             style_data={
+                                 'whiteSpace': 'normal',
+                                 'font-family': 'Times New Romer',
+                                 'font-size': 11,
+                                 'text-align': 'center',
+                                 'color': 'black',
+                                 'backgroundColor': 'white'
+                             }
+                         ),
+                         html.H4('交易详情'),
+                         # dcc.Graph(figure=tl_fig),
+                         dbc.Container(
+                             [
+                                 dbc.Spinner(
+                                     dash_table.DataTable(
+                                         id='dash-table',
+                                         columns=[
+                                             {'name': column, 'id': column}
+                                             for column in tl_df.columns
+                                         ],
+                                         page_size=15,  # 设置单页显示15行记录行数
+                                         page_action='custom',
+                                         page_current=0,
+                                         sort_action='custom',
+                                         sort_mode='multi',
+                                         style_data_conditional=[
+                                             {
+                                                 'if': {'row_index': 'odd'},
+                                                 'backgroundColor': 'rgb(220, 220, 220)',
+                                             }
+                                         ],
+                                         export_format='xlsx',
+                                         style_header={
+                                             'font-family': 'Times New Romer',
+                                             'font-weight': 'bold',
+                                             'font-size': 11,
+                                             'text-align': 'center',
+                                             'backgroundColor': 'rgb(210, 210, 210)',
+                                             'color': 'black',
+                                         },
+                                         style_data={
+                                             'whiteSpace': 'normal',
+                                             'font-family': 'Times New Romer',
+                                             'font-size': 11,
+                                             'text-align': 'center',
+                                             'color': 'black',
+                                             'backgroundColor': 'white'
+                                         }
+                                     )
+                                 )
+                             ],
+                             style={
+                                 'margin-top': '-15px'
+                             }
+                         )
+                     ]
+                 )
+             )
+        return dash.no_update
+
+    # host设置为0000 为了主机能访问 虚拟机的web服务
+    # http://hadoop102:8000/
+    # app.run(host='0.0.0.0', port='8000', debug=True)
+    app.run(host='0.0.0.0', port=port)
+
+def run_cerebro_dash_hive(port):
+    '''回测结果可视化'''
+    app = dash.Dash(__name__)
+    # 缓存性能优化 可以用redis
+    cache = Cache(app.server, config={
+        'CACHE_TYPE': 'filesystem',
+        'CACHE_DIR': 'cache-directory'
+    })
+
+    app.layout = html.Div(
+        dbc.Spinner(
+            dbc.Container(
+                [
+                    dcc.Location(id='url'),
+                    html.Div(
+                        id='page-content'
+                    )
+                ],
+                style={
+                    'paddingTop': '30px',
+                    'paddingBottom': '50px',
+                    'borderRadius': '10px',
+                    'boxShadow': 'rgb(0 0 0 / 20%) 0px 13px 30px, rgb(255 255 255 / 80%) 0px -13px 30px'
+                }
+            ),
+            fullscreen=True
+        )
+    )
+
+    @app.callback(
+        Output('strategy-links', 'children'),
+        Input('url', 'pathname')
+    )
+    def render_strategy_links(pathname):
+        appName = os.path.basename(__file__)
+        spark = get_spark(appName)
+        spark_df = spark.sql("""
+        select split(strategy_id,'_')[0] as strategy_name,
+               hold_day,
+               hold_n,
+               start_date,
+               end_date,
+               start_cash,
+               end_cash,
+               annual_max_retrace
+        from hc.dim_hc_strategy_main
+        where strategy_name = '本策略'
+        """)
+        pd_df = spark_df.toPandas()
+        return [
+            html.Li(
+                dcc.Link('{}    {} 持股周期：{}天     买入规则：排名<={} 回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}  年化收益率/最大回撤：{}'.format(i+1,strategy_name,hold_day,hold_n,start_date,end_date,start_cash,end_cash,annual_max_retrace),
+                         href=f'/strategy-{i+1}-{strategy_name}_{hold_day}_{hold_n}', target='_blank')
+            )
+            for i,(strategy_name, hold_day,hold_n, start_date,end_date, start_cash, end_cash,annual_max_retrace) in enumerate(pd_df.values.tolist())
+        ]
+
+    @app.callback(
+        Output('page-content', 'children'),
+        Input('url', 'pathname')
+    )
+    def render_strategy_content(pathname):
+        if pathname == '/':
+            return [
+                html.H2('策略列表：'),
+                html.Div(
+                    id='strategy-links',
+                    style={
+                        'width': '100%'
+                    }
+                )
+            ]
+        elif pathname.startswith('/strategy-'):
+             appName = os.path.basename(__file__)
+             spark = get_spark(appName)
+             hc_strategy = pathname.split('-')[2]
+             hc_main_spark_df = spark.sql("""
+             select split(strategy_id,'_')[0] as strategy_name,
+                    hold_day,
+                    hold_n,
+                    start_date,
+                    end_date,
+                    start_cash,
+                    end_cash,
+                    annual_max_retrace
+             from hc.dim_hc_strategy_main
+             where strategy_name = '本策略'
+                    and hc_strategy = '%s'
+             """%(hc_strategy))
+             hc_main_df = hc_main_spark_df.toPandas()
+             strategy_name = hc_main_df['strategy_name'].iloc[0]
+             hold_day = hc_main_df['hold_day'].iloc[0]
+             hold_n = hc_main_df['hold_n'].iloc[0]
+             start_date = hc_main_df['start_date'].iloc[0]
+             end_date = hc_main_df['end_date'].iloc[0]
+             start_cash = hc_main_df['start_cash'].iloc[0]
+             end_cash =hc_main_df['end_cash'].iloc[0]
+             annual_max_retrace =hc_main_df['annual_max_retrace'].iloc[0]
+
+             hc_yield_spark_df = spark.sql("""
+             select trade_date as `交易日期`,
+                    label as `标签`,
+                    yield_td as `累计收益率`
+             from hc.dim_hc_strategy_yield
+             where hc_strategy = '%s'
+             """%(hc_strategy))
+             zx_df = hc_yield_spark_df.toPandas()
+
+             hc_cc_spark_df = spark.sql("""
+             select trade_date as `交易日期`,
+                    cc as `持仓比`
+             from hc.dim_hc_strategy_cc
+             where hc_strategy = '%s'
+             """%(hc_strategy))
+             cc_df = hc_cc_spark_df.toPandas()
+
+             hc_main_spark_df2 = spark.sql("""
+             select strategy_name as `策略`,
+                    yield_td as `累计收益率`,
+                    annual_yield as `年化收益率`,
+                    wp as `胜率`,
+                    max_drawdown as `最大回撤`,
+                    sharp_ratio as `夏普比率`,
+                    yield_1d as `今日收益率`,
+                    yield_7d as `近7天收益率`,
+                    yield_22d as `近1月收益率`,
+                    yield_66d as `近3月收益率`
+             from hc.dim_hc_strategy_main
+             where hc_strategy = '%s'
+             """%(hc_strategy))
+             analyzer_df = hc_main_spark_df2.toPandas()
+
+             hc_t_spark_df = spark.sql("""
+             select order_id as `订单`,
+                    stock_code as `股票代码`,
+                    buy_date as `买入日期`,
+                    buy_price as `买家`,
+                    sell_date as `卖出日期`,
+                    sell_price as `卖价`,
+                    yield_ratio as `收益率`,
+                    yield as `利润`,
+                    yield_cash as `利润总资产比`,
+                    size as `股数`,
+                    cost as `股本`,
+                    cc as `持仓比`,
+                    yield_td as `累计收益率`,
+                    max_yield as `最大利润%%`,
+                    max_loss as `最大亏损%%`
+             from hc.dim_hc_strategy_trade
+             where hc_strategy = '%s'
+             """%(hc_strategy))
+             tl_df = hc_t_spark_df.toPandas()
+
+             # '交易日期', '标签', '累计收益率'
+             dt_all = pd.date_range(min(zx_df['交易日期']), max(zx_df['交易日期']))
+             # print('最小最大：', type(min(zx_df['交易日期'])), min(zx_df['交易日期']), max(zx_df['交易日期']))
+             dt_all = [pd.to_datetime(d).date() for d in dt_all]
+             dt_breaks = list(set(dt_all) - set(zx_df['交易日期']))
+
+             zx_fig = px.line(
+                 zx_df,  # 绘图数据
+                 x=zx_df['交易日期'],  # x轴标签
+                 y=zx_df['累计收益率'],
+                 color='标签',
+                 color_discrete_sequence=['#FF0000', '#2776B6', '#8F4E4F'],
+                 hover_data={'标签': False,'交易日期': "|%Y-%m-%d"}
+             )
+
+             zx_fig.update_xaxes(
+                 # rangebreaks=[dict(values=dt_breaks)], # 剔除不交易日期 要区间范围内的 否则会有bug dt_breaks有数据 但是持仓那里却可以这里为什么会显示不了 line会有问题
+                 ticklabelmode='instant',  # ticklabelmode模式：居中 'instant', 'period'
+                 tickformatstops=[
+                     dict(dtickrange=[3600000, "M1"], value='%Y-%m-%d'),
+                     dict(dtickrange=["M1", "M12"], value='%Y-%m'),
+                     dict(dtickrange=["M12", None], value='%Y')
+                 ],
+                 rangeselector=dict(
+                     # 增加固定范围选择
+                     buttons=list([
+                         dict(count=1, label='1M', step='month', stepmode='backward'),
+                         dict(count=6, label='6M', step='month', stepmode='backward'),
+                         dict(count=1, label='1Y', step='year', stepmode='backward'),
+                         dict(count=1, label='YTD', step='year', stepmode='todate'),
+                         dict(step='all')]))
+             )
+             zx_fig.update_yaxes(ticksuffix='%', side='right', ticklabelposition='inside')
+             zx_fig.update_layout(xaxis_title=None, yaxis_title=None, legend_title_text=None,
+                                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+
+             # 绘制持仓比
+             cc_fig = px.line(
+                 cc_df,  # 绘图数据
+                 x=cc_df['交易日期'],  # x轴标签
+                 y=cc_df['持仓比'],
+                 hover_data={'交易日期': "|%Y-%m-%d"},  # 悬停信息设置
+                 color_discrete_sequence=['#66FF99']
+             )
+             # tickformat = '%Y-%m-%d' visible=False,
+             cc_fig.update_xaxes(rangebreaks=[dict(values=dt_breaks)],
+                                 ticklabelposition='inside',
+                                 tickformatstops=[
+                                     dict(dtickrange=[3600000, "M1"], value='%Y-%m-%d'),
+                                     dict(dtickrange=["M1", "M12"], value='%Y-%m'),
+                                     dict(dtickrange=["M12", None], value='%Y')
+                                 ])
+             cc_fig.update_yaxes(ticksuffix='%', ticklabelposition='inside', side='right')
+             cc_fig.update_layout(xaxis_title=None, margin=dict(t=10, l=10, b=10, r=10), width=1447, height=80)
+
+             # 设置后缀
+             an_columns = [
+                 dict(id='策略', name='策略'),
+                 dict(id='累计收益率', name='累计收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='年化收益率', name='年化收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='胜率', name='胜率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='最大回撤', name='最大回撤', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='夏普比率', name='夏普比率'),
+                 dict(id='今日收益率', name='今日收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='近7天收益率', name='近7天收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='近1月收益率', name='近1月收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='近3月收益率', name='近3月收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$'))
+             ]
+             tl_df.sort_index(ascending=False, inplace=True)
+
+             @app.callback(
+                 [Output('dash-table', 'data'),
+                  Output('dash-table', 'page_count')],
+                 [Input('dash-table', 'page_current'),
+                  Input('dash-table', 'page_size'),
+                  Input('dash-table', 'sort_by')]
+             )
+             def refresh_page_data(page_current, page_size, sort_by):
+                 '''表格后端分页'''
+                 if sort_by:
+                     return (
+                         tl_df.sort_values(
+                             [col['column_id'] for col in sort_by],
+                             ascending=[
+                                 col['direction'] == 'asc'
+                                 for col in sort_by
+                             ]
+                         ).iloc[page_current * page_size:(page_current + 1) * page_size].to_dict('records'),
+                         1 + tl_df.shape[0] // page_size
+                     )
+                 return tl_df.iloc[page_current * page_size:(page_current + 1) * page_size].to_dict('records'), 1 + \
+                        tl_df.shape[0] // page_size
+
+             return (
+                 html.Div(
+                     [
+                         html.H3(
+                             children='{}策略评估'.format(strategy_name),
+                             style=dict(textAlign='center', color='black')),
+                         html.Div(
+                             children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}    持股周期：{}天     买入规则：排名<={}    年化收益率/最大回撤={}'.format(
+                                 start_date, end_date, start_cash, end_cash, hold_day, hold_n, annual_max_retrace),
+                             style=dict(textAlign='center', color='black')),
+                         html.H4('累计收益率走势'),
+                         dcc.Graph(figure=zx_fig, style={'margin-top': '-22px'}),
+                         dcc.Graph(figure=cc_fig, style={'margin-top': '-62px', 'margin-left': '350px'}),
+                         html.H4(children='收益统计', style={'margin-top': '-2px'}),
+                         dash_table.DataTable(
+                             id='收益统计table',
+                             data=analyzer_df.to_dict('records'),
+                             columns=an_columns,
+                             style_data_conditional=(
+                                     [
+                                         {
+                                             'if': {'row_index': 'odd'},
+                                             'backgroundColor': 'rgb(220, 220, 220)',
+                                         }
+                                     ] +
+                                     [
+                                         {
+                                             'if': {
+                                                 'filter_query': '{{{}}} > 0'.format(col),
+                                                 'column_id': col
+                                             },
+                                             'color': '#ff0000'
+                                         } for col in ['累计收益率', '年化收益率', '夏普比率', '今日收益率', '近7天收益率', '近1月收益率', '近3月收益率']
+                                     ] +
+                                     [
+                                         {
+                                             'if': {
+                                                 'filter_query': '{{{}}} < 0'.format(col),
+                                                 'column_id': col
+                                             },
+                                             'color': '#008000'
+                                         } for col in ['累计收益率', '年化收益率', '夏普比率', '今日收益率', '近7天收益率', '近1月收益率', '近3月收益率']
+                                     ]
+                             ),
+                             style_header={
+                                 'font-family': 'Times New Romer',
+                                 'font-weight': 'bold',
+                                 'font-size': 11,
+                                 'text-align': 'center',
+                                 'backgroundColor': 'rgb(210, 210, 210)',
+                                 'color': 'black',
+                             },
+                             style_data={
+                                 'whiteSpace': 'normal',
+                                 'font-family': 'Times New Romer',
+                                 'font-size': 11,
+                                 'text-align': 'center',
+                                 'color': 'black',
+                                 'backgroundColor': 'white'
+                             }
+                         ),
+                         html.H4('交易详情'),
+                         # dcc.Graph(figure=tl_fig),
+                         dbc.Container(
+                             [
+                                 dbc.Spinner(
+                                     dash_table.DataTable(
+                                         id='dash-table',
+                                         columns=[
+                                             {'name': column, 'id': column}
+                                             for column in tl_df.columns
+                                         ],
+                                         page_size=15,  # 设置单页显示15行记录行数
+                                         page_action='custom',
+                                         page_current=0,
+                                         sort_action='custom',
+                                         sort_mode='multi',
+                                         style_data_conditional=[
+                                             {
+                                                 'if': {'row_index': 'odd'},
+                                                 'backgroundColor': 'rgb(220, 220, 220)',
+                                             }
+                                         ],
+                                         export_format='xlsx',
+                                         style_header={
+                                             'font-family': 'Times New Romer',
+                                             'font-weight': 'bold',
+                                             'font-size': 11,
+                                             'text-align': 'center',
+                                             'backgroundColor': 'rgb(210, 210, 210)',
+                                             'color': 'black',
+                                         },
+                                         style_data={
+                                             'whiteSpace': 'normal',
+                                             'font-family': 'Times New Romer',
+                                             'font-size': 11,
+                                             'text-align': 'center',
+                                             'color': 'black',
+                                             'backgroundColor': 'white'
+                                         }
+                                     )
+                                 )
+                             ],
+                             style={
+                                 'margin-top': '-15px'
+                             }
+                         )
+                     ]
+                 )
+             )
+        return dash.no_update
+
+    # host设置为0000 为了主机能访问 虚拟机的web服务
+    # http://hadoop102:8000/
+    # app.run(host='0.0.0.0', port='8000', debug=True)
+    app.run(host='0.0.0.0', port=port)
+
+def run_cerebro_dash_hive_cache_f(port):
+    '''回测结果可视化'''
+    app = dash.Dash(__name__)
+    # 缓存性能优化 可以用redis
+    cache = Cache(app.server, config={
+        'CACHE_TYPE': 'filesystem',
+        'CACHE_DIR': 'cache-directory'
+    })
+
+    app.layout = html.Div(
+        dbc.Spinner(
+            dbc.Container(
+                [
+                    dcc.Location(id='url'),
+                    html.Div(
+                        id='page-content'
+                    )
+                ],
+                style={
+                    'paddingTop': '30px',
+                    'paddingBottom': '50px',
+                    'borderRadius': '10px',
+                    'boxShadow': 'rgb(0 0 0 / 20%) 0px 13px 30px, rgb(255 255 255 / 80%) 0px -13px 30px'
+                }
+            ),
+            fullscreen=True
+        )
+    )
+
+    # @cache.memoize(timeout=300)
+    @cache.memoize()
+    def query_data(hc_strategy):
+        appName = os.path.basename(__file__)
+        spark = get_spark(appName)
+        if hc_strategy == '':
+            spark_df = spark.sql("""
+            select split(strategy_id,'_')[0] as strategy_name,
+                   hold_day,
+                   hold_n,
+                   start_date,
+                   end_date,
+                   start_cash,
+                   end_cash,
+                   annual_max_retrace
+            from hc.dim_hc_strategy_main
+            where strategy_name = '本策略'
+            """)
+            index_df = spark_df.toPandas()
+            # now = datetime.now()
+            # index_df['time'] = [now - timedelta(seconds=5 * i) for i in range(100)]
+            spark.stop()
+            return index_df.to_json(date_format='iso', orient='split')
+        else:
+            hc_main_spark_df = spark.sql("""
+            select split(strategy_id,'_')[0] as strategy_name,
+                   hold_day,
+                   hold_n,
+                   start_date,
+                   end_date,
+                   start_cash,
+                   end_cash,
+                   annual_max_retrace
+            from hc.dim_hc_strategy_main
+            where strategy_name = '本策略'
+                   and hc_strategy = '%s'
+            """ % (hc_strategy))
+            hc_main_df = hc_main_spark_df.toPandas()
+
+            hc_yield_spark_df = spark.sql("""
+            select trade_date as `交易日期`,
+                   label as `标签`,
+                   yield_td as `累计收益率`
+            from hc.dim_hc_strategy_yield
+            where hc_strategy = '%s'
+            """ % (hc_strategy))
+            zx_df = hc_yield_spark_df.toPandas()
+
+            hc_cc_spark_df = spark.sql("""
+            select trade_date as `交易日期`,
+                   cc as `持仓比`
+            from hc.dim_hc_strategy_cc
+            where hc_strategy = '%s'
+            """ % (hc_strategy))
+            cc_df = hc_cc_spark_df.toPandas()
+
+            hc_main_spark_df2 = spark.sql("""
+            select strategy_name as `策略`,
+                   yield_td as `累计收益率`,
+                   annual_yield as `年化收益率`,
+                   wp as `胜率`,
+                   max_drawdown as `最大回撤`,
+                   sharp_ratio as `夏普比率`,
+                   yield_1d as `今日收益率`,
+                   yield_7d as `近7天收益率`,
+                   yield_22d as `近1月收益率`,
+                   yield_66d as `近3月收益率`
+            from hc.dim_hc_strategy_main
+            where hc_strategy = '%s'
+            """ % (hc_strategy))
+            analyzer_df = hc_main_spark_df2.toPandas()
+
+            hc_t_spark_df = spark.sql("""
+            select order_id as `订单`,
+                   stock_code as `股票代码`,
+                   buy_date as `买入日期`,
+                   buy_price as `买家`,
+                   sell_date as `卖出日期`,
+                   sell_price as `卖价`,
+                   yield_ratio as `收益率`,
+                   yield as `利润`,
+                   yield_cash as `利润总资产比`,
+                   size as `股数`,
+                   cost as `股本`,
+                   cc as `持仓比`,
+                   yield_td as `累计收益率`,
+                   max_yield as `最大利润%%`,
+                   max_loss as `最大亏损%%`
+            from hc.dim_hc_strategy_trade
+            where hc_strategy = '%s'
+            """ % (hc_strategy))
+            tl_df = hc_t_spark_df.toPandas()
+
+            spark.stop()
+            return hc_main_df.to_json(date_format='iso', orient='split'),zx_df.to_json(date_format='iso', orient='split'),\
+                   cc_df.to_json(date_format='iso', orient='split'),analyzer_df.to_json(date_format='iso', orient='split'),tl_df.to_json(date_format='iso', orient='split')
+
+    def dataframe(hc_strategy):
+        if hc_strategy == '':
+            index_df = query_data(hc_strategy)
+            return pd.read_json(index_df, orient='split')
+        else:
+            hc_main_df,zx_df,cc_df,analyzer_df,tl_df = query_data(hc_strategy)
+            return pd.read_json(hc_main_df, orient='split'),pd.read_json(zx_df, orient='split'),pd.read_json(cc_df, orient='split'),pd.read_json(analyzer_df, orient='split'),pd.read_json(tl_df, orient='split')
+
+    @app.callback(
+        Output('strategy-links', 'children'),
+        Input('url', 'pathname')
+    )
+    def render_strategy_links(pathname):
+        index_df = dataframe('')
+        return [
+            html.Li(
+                dcc.Link('{}    {} 持股周期：{}天     买入规则：排名<={} 回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}  年化收益率/最大回撤：{}'.format(i+1,strategy_name,hold_day,hold_n,start_date,end_date,start_cash,end_cash,annual_max_retrace),
+                         href=f'/strategy-{i+1}-{strategy_name}_{hold_day}_{hold_n}', target='_blank')
+            )
+            for i,(strategy_name, hold_day,hold_n, start_date,end_date, start_cash, end_cash,annual_max_retrace) in enumerate(index_df.values.tolist())
+        ]
+
+    @app.callback(
+        Output('page-content', 'children'),
+        Input('url', 'pathname')
+    )
+    def render_strategy_content(pathname):
+        if pathname == '/':
+            return [
+                html.H2('策略列表：'),
+                html.Div(
+                    id='strategy-links',
+                    style={
+                        'width': '100%'
+                    }
+                )
+            ]
+        elif pathname.startswith('/strategy-'):
+             appName = os.path.basename(__file__)
+             spark = get_spark(appName)
+             hc_strategy = pathname.split('-')[2]
+
+             hc_main_df,zx_df,cc_df,analyzer_df,tl_df = dataframe(hc_strategy)
+
+             strategy_name = hc_main_df['strategy_name'].iloc[0]
+             hold_day = hc_main_df['hold_day'].iloc[0]
+             hold_n = hc_main_df['hold_n'].iloc[0]
+             start_date = hc_main_df['start_date'].iloc[0]
+             end_date = hc_main_df['end_date'].iloc[0]
+             start_cash = hc_main_df['start_cash'].iloc[0]
+             end_cash =hc_main_df['end_cash'].iloc[0]
+             annual_max_retrace =hc_main_df['annual_max_retrace'].iloc[0]
+
+             # '交易日期', '标签', '累计收益率'
+             dt_all = pd.date_range(min(zx_df['交易日期']), max(zx_df['交易日期']))
+             # print('最小最大：', type(min(zx_df['交易日期'])), min(zx_df['交易日期']), max(zx_df['交易日期']))
+             dt_all = [pd.to_datetime(d).date() for d in dt_all]
+             dt_breaks = list(set(dt_all) - set(zx_df['交易日期']))
+
+             zx_fig = px.line(
+                 zx_df,  # 绘图数据
+                 x=zx_df['交易日期'],  # x轴标签
+                 y=zx_df['累计收益率'],
+                 color='标签',
+                 color_discrete_sequence=['#FF0000', '#2776B6', '#8F4E4F'],
+                 hover_data={'标签': False,'交易日期': "|%Y-%m-%d"}
+             )
+
+             zx_fig.update_xaxes(
+                 # rangebreaks=[dict(values=dt_breaks)], # 剔除不交易日期 要区间范围内的 否则会有bug dt_breaks有数据 但是持仓那里却可以这里为什么会显示不了 line会有问题
+                 ticklabelmode='instant',  # ticklabelmode模式：居中 'instant', 'period'
+                 tickformatstops=[
+                     dict(dtickrange=[3600000, "M1"], value='%Y-%m-%d'),
+                     dict(dtickrange=["M1", "M12"], value='%Y-%m'),
+                     dict(dtickrange=["M12", None], value='%Y')
+                 ],
+                 rangeselector=dict(
+                     # 增加固定范围选择
+                     buttons=list([
+                         dict(count=1, label='1M', step='month', stepmode='backward'),
+                         dict(count=6, label='6M', step='month', stepmode='backward'),
+                         dict(count=1, label='1Y', step='year', stepmode='backward'),
+                         dict(count=1, label='YTD', step='year', stepmode='todate'),
+                         dict(step='all')]))
+             )
+             zx_fig.update_yaxes(ticksuffix='%', side='right', ticklabelposition='inside')
+             zx_fig.update_layout(xaxis_title=None, yaxis_title=None, legend_title_text=None,
+                                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+
+             # 绘制持仓比
+             cc_fig = px.line(
+                 cc_df,  # 绘图数据
+                 x=cc_df['交易日期'],  # x轴标签
+                 y=cc_df['持仓比'],
+                 hover_data={'交易日期': "|%Y-%m-%d"},  # 悬停信息设置
+                 color_discrete_sequence=['#66FF99']
+             )
+             # tickformat = '%Y-%m-%d' visible=False,
+             cc_fig.update_xaxes(rangebreaks=[dict(values=dt_breaks)],
+                                 ticklabelposition='inside',
+                                 tickformatstops=[
+                                     dict(dtickrange=[3600000, "M1"], value='%Y-%m-%d'),
+                                     dict(dtickrange=["M1", "M12"], value='%Y-%m'),
+                                     dict(dtickrange=["M12", None], value='%Y')
+                                 ])
+             cc_fig.update_yaxes(ticksuffix='%', ticklabelposition='inside', side='right')
+             cc_fig.update_layout(xaxis_title=None, margin=dict(t=10, l=10, b=10, r=10), width=1447, height=80)
+
+             # 设置后缀
+             an_columns = [
+                 dict(id='策略', name='策略'),
+                 dict(id='累计收益率', name='累计收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='年化收益率', name='年化收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='胜率', name='胜率', type='numeric', format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='最大回撤', name='最大回撤', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='夏普比率', name='夏普比率'),
+                 dict(id='今日收益率', name='今日收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='近7天收益率', name='近7天收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='近1月收益率', name='近1月收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$')),
+                 dict(id='近3月收益率', name='近3月收益率', type='numeric',format=dict(locale=dict(symbol=['', '%']), specifier='$'))
+             ]
+             tl_df.sort_index(ascending=False, inplace=True)
+
+             @app.callback(
+                 [Output('dash-table', 'data'),
+                  Output('dash-table', 'page_count')],
+                 [Input('dash-table', 'page_current'),
+                  Input('dash-table', 'page_size'),
+                  Input('dash-table', 'sort_by')]
+             )
+             def refresh_page_data(page_current, page_size, sort_by):
+                 '''表格后端分页'''
+                 if sort_by:
+                     return (
+                         tl_df.sort_values(
+                             [col['column_id'] for col in sort_by],
+                             ascending=[
+                                 col['direction'] == 'asc'
+                                 for col in sort_by
+                             ]
+                         ).iloc[page_current * page_size:(page_current + 1) * page_size].to_dict('records'),
+                         1 + tl_df.shape[0] // page_size
+                     )
+                 return tl_df.iloc[page_current * page_size:(page_current + 1) * page_size].to_dict('records'), 1 + \
+                        tl_df.shape[0] // page_size
+
+             return (
+                 html.Div(
+                     [
+                         html.H3(
+                             children='{}策略评估'.format(strategy_name),
+                             style=dict(textAlign='center', color='black')),
+                         html.Div(
+                             children='回测日期：{} ~ {}  期初资金：¥{}    期末资金：¥{}    持股周期：{}天     买入规则：排名<={}    年化收益率/最大回撤={}'.format(
+                                 start_date, end_date, start_cash, end_cash, hold_day, hold_n, annual_max_retrace),
                              style=dict(textAlign='center', color='black')),
                          html.H4('累计收益率走势'),
                          dcc.Graph(figure=zx_fig, style={'margin-top': '-22px'}),

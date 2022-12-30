@@ -19,22 +19,26 @@ pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
 
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py 20210101 20221201 2 3 7777
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py 20210101 20221201 5 3 8000
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py 20210101 20221201 22 3 8000
-# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py update 20210101 20221201 >> my.log 2>&1 &
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_xsz_pettm.py update 20210101 20221201
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_hive.py 20221101 20221201 2 3 7777
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py 20210101 20221201 5 3 8000
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py 20210101 20221201 22 3 8000
+# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py update 20210101 20221201 >> my.log 2>&1 &
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py update 20210101 20221201
 if __name__ == '__main__':
-    if len(sys.argv) < 6:
-        print("请携带所有参数")
-    else:
-        start_date = sys.argv[1]
-        end_date = sys.argv[2]
-        hold_day = sys.argv[3]
-        hold_n = sys.argv[4]
-        port = sys.argv[5]
+    # if len(sys.argv) < 6:
+    #     print("请携带所有参数")
+    # else:
+    #     start_date = sys.argv[1]
+    #     end_date = sys.argv[2]
+    #     hold_day = int(sys.argv[3])
+    #     hold_n = int(sys.argv[4])
+    #     port = sys.argv[5]
 
-
+    start_date = '20221101'
+    end_date = '20221201'
+    hold_day = 2
+    hold_n = 3
+    port = 7777
     appName = os.path.basename(__file__)
     start_time = time.time()
     spark = get_spark(appName)
@@ -53,7 +57,7 @@ if __name__ == '__main__':
                and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
                and change_percent <5
                and turnover_rate between 1 and 30
-               and pe_ttm between 0 and 30
+               and net_profit_growth_rate >0
        ),
        tmp_ads_02 as (
        --去除or 停复牌
@@ -70,42 +74,39 @@ if __name__ == '__main__':
               dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
               dense_rank()over(partition by td order by total_market_value) as dr_tmv,
               dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
-              dense_rank()over(partition by td order by pe_ttm,pe) as dr_pe_ttm,
+              dense_rank()over(partition by td order by pe_ttm/net_profit_growth_rate,pe) as dr_peg,
               dense_rank()over(partition by td order by sub_factor_score desc) as dr_sub_factor_score
        from tmp_ads_02
        ),
        tmp_ads_04 as (
                       select *,
-                             '小市值+市盈率TTM+换手率' as stock_strategy_name,
-                             -- 加上量比排序 避免排名重复
-                             -- dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
-                             -- 权重 
-                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_tmv+dr_turnover_rate+dr_pe_ttm+dr_sub_factor_score,volume_ratio_1d) as stock_strategy_ranking
+                             '小市值+PEG+换手率' as stock_strategy_name,
+                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_tmv+dr_turnover_rate+dr_peg+dr_sub_factor_score,volume_ratio_1d) as stock_strategy_ranking
                       from tmp_ads_03
        )
-    select nvl(t1.trade_date,t2.trade_date) as trade_date,
-           nvl(t1.stock_code||'_'||t1.stock_name,t2.stock_code||'_'||t2.stock_name) as stock_code,
-           nvl(t1.open_price,t2.open_price) as open,
-           nvl(t1.close_price,t2.close_price) as close,
-           nvl(t1.high_price,t2.high_price) as high,
-           nvl(t1.low_price,t2.low_price) as low,
-           nvl(t1.volume,t2.volume) as volume,
-           nvl(t1.stock_strategy_ranking,9999) as stock_strategy_ranking
-           from tmp_ads_04 t1
-           full join stock.dwd_stock_quotes_di t2
-           on t1.trade_date = t2.trade_date
-                and t1.stock_code = t2.stock_code
-                and t2.td between '%s' and '%s'
-           order by stock_strategy_ranking
+        select nvl(t1.trade_date,t2.trade_date) as trade_date,
+               nvl(t1.stock_code||'_'||t1.stock_name,t2.stock_code||'_'||t2.stock_name) as stock_code,
+               nvl(t1.open_price,t2.open_price) as open,
+               nvl(t1.close_price,t2.close_price) as close,
+               nvl(t1.high_price,t2.high_price) as high,
+               nvl(t1.low_price,t2.low_price) as low,
+               nvl(t1.volume,t2.volume) as volume,
+               nvl(t1.stock_strategy_ranking,9999) as stock_strategy_ranking
+               from tmp_ads_04 t1
+               full join stock.dwd_stock_quotes_di t2
+               on t1.trade_date = t2.trade_date
+                    and t1.stock_code = t2.stock_code
+                    and t2.td between '%s' and '%s'
+               order by stock_strategy_ranking
         """ % (start_date, end_date_5, start_date, end_date_5)
 
     # 读取数据
     spark_df = spark.sql(sql)
     pd_df = spark_df.toPandas()
+    spark.stop()
     # 将trade_date设置成index
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
     print('{} 获取数据 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-    bt_rank.hc(appName,pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
+    bt_rank.hc('小市值+换手率',pd_df, start_date, end_date, end_date_5, hold_day, hold_n, mu=True,port=port)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

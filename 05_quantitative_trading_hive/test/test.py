@@ -3,9 +3,12 @@ import multiprocessing
 import os
 import sys
 import time
+import random
+
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
+from util import btUtils
 import warnings
 from datetime import date
 import talib as ta
@@ -15,7 +18,7 @@ import pandas as pd
 import backtrader as bt
 import matplotlib.pyplot as plt
 import plotly.express as px
-
+from decimal import Decimal
 from util.CommonUtils import get_spark
 
 warnings.filterwarnings("ignore")
@@ -37,8 +40,24 @@ if __name__ == '__main__':
     # 沪深300 000300
     # stock_zh_index_daily_df = ak.stock_zh_index_daily(symbol="sh000300")
     # print(stock_zh_index_daily_df)
-    df = ak.stock_a_lg_indicator(symbol='000609')
-    print(df)
+    # df = ak.stock_a_lg_indicator(symbol='000609')
+    # df = df[df['trade_date'] >= pd.to_datetime('20221226').date()]
+    # print(df)
+    # print(df.dtypes)
+    #
+    # a = Decimal(1.25)
+    # b = 4.33
+    # print(type(a))
+    # print(type(Decimal(b)))
+    #
+    # df['total_mv'] = df['total_mv'].apply(lambda x: Decimal(x))
+    # df['total_mv'] = df['total_mv'].astype(float)
+    # # print(df.dtypes)
+    # print(df.display())
+    #
+    # df2 = pd.DataFrame({"A": [Decimal(5.2), Decimal(5.2), Decimal(5.2), Decimal(5.2)],
+    #                    "D": [5, 4, 2, 8]})
+    # print(df2.dtypes)
 
     # df = ak.stock_tfp_em(date='20221130')
     # print(df)
@@ -52,11 +71,11 @@ if __name__ == '__main__':
     # 字段是 date open close high low volume
 
 
-    df = pd.DataFrame({"A": [5, 3, 3, 4],
-                       "B": [11, 2, 4, 3],
-                       "C": [4, 3, 8, 5],
-                       "D": [5, 4, 2, 8]})
-    #
+    # df = pd.DataFrame({"A": [5, 3, 3, 4],
+    #                    "B": [11, 2, 4, 3],
+    #                    "C": [4, 3, 8, 5],
+    #                    "D": [5, 4, 2, 8]})
+    # print(type(df.values.tolist()))
     # df2 = pd.DataFrame({"A": [pd.to_datetime('20221101').date(), pd.to_datetime('20221201').date(), pd.to_datetime('20220104').date(), pd.to_datetime('20221020').date()]})
     # df['r'] = df.A.shift(1)
     # df = ak.stock_a_lg_indicator(symbol='000609')
@@ -82,11 +101,5 @@ if __name__ == '__main__':
     #     num,kk = pa_group[i][0],pa_group[i][1]
     #     print(num,kk)
 
-    # di = {'sf':4}
-    # if di:
-    #     print('rl不为空')
-    # else:
-    #     print('rl为空')
-
-    # print(len(list1))
-    # print(len(list2))
+    stock_hot_rank_em_df = ak.stock_hot_rank_em()
+    print(stock_hot_rank_em_df)

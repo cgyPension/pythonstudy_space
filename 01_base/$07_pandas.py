@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 import akshare as ak
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 warnings.filterwarnings("ignore")
 # 输出显示设置
 pd.options.display.max_rows=None
@@ -577,6 +578,8 @@ def test_groupby():
     默认情况下，NaN数据会被排除在groupby之外，通过设置 dropna=False 可以允许NaN数据：
      df_dropna.groupby(by=["b"], dropna=True).sum()
     groupby对象有个groups属性，它是一个key-value字典，key是用来分类的数据，value是分类对应的值。
+    group_keys=False 可以禁用分组键所形成的索引，不会删去原始对象的索引。
+
     mean()	平均值
     sum()	求和
     size()	计算size
