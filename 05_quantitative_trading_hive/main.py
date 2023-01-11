@@ -87,7 +87,7 @@ def task_update_daily():
     # dwd_stock_quotes_di.get_data(start_date, end_date)
     # dwd_stock_zt_di.get_data(start_date, end_date)
     # dwd_stock_strong_di.get_data(start_date, end_date)
-    #
+
     # ads_stock_suggest_di.get_data(start_date, end_date)
     # ads_strategy_yield_di.get_data()
     # AdstoCSV.get_data(start_date,'小市值+市盈率TTM+换手率')
