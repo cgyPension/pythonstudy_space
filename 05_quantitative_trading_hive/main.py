@@ -108,7 +108,7 @@ def task_update_daily():
 # 时间： 周一到周五每天早上9点25, 执行run_today
 # sched.add_job(task_update_daily, 'cron', day_of_week='mon-fri', hour=9, minute=25)
 # sched.start()
-
+#
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update 20210101 20221230
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main.py update 20221230 20221230
