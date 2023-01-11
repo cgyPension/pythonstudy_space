@@ -1,133 +1,109 @@
-import backtrader as bt
-import akshare as ak
+# 导入函数库
+import jqdata
+import numpy as np
 import pandas as pd
-import backtrader
-from backtrader import indicators as btind
-from datetime import datetime
 import math
-#matplotlib安装3.2.2版本
+from statsmodels import regression
+import statsmodels.api as sm
 import matplotlib.pyplot as plt
-'''
-数据包括 date,close,low,open,high,volume,自定义数据，0一直指向最新数据
-'''
-class user_def_data(backtrader.feeds.PandasData):
-    #添加一条线，名称
-    lines = ('money',)  # 要添加的列名
-    # 设置 line 在数据源上新增的位置
-    params = (
-        ('money', -1),  # turnover对应传入数据的列名，这个-1会自动匹配backtrader的数据类与原有pandas文件的列名
-        # 如果是个大于等于0的数，比如8，那么backtrader会将原始数据下标8(第9列，下标从0开始)的列认为是turnover这一列
-    )
-#建立交易类
-class TestStrategy(bt.Strategy):
-    #记录函数 dt时间
-    def log(self,txt,dt=None):
-        #最近的时间
-        dt=dt or self.datas[0].datetime.date(0)
-        print('%s, %s' % (dt.isoformat(), txt))
-    #初始化数据
-    def __init__(self):
-        #收盘价
-        self.dataclose=self.datas[0].close
-        #开盘价
-        self.dataopen=self.datas[0].open
-        #最低价
-        self.datalow=self.datas[0].low
-        #最高价
-        self.datahigh=self.datas[0].high
-        #加入资金数据
-        self.money=self.datas[0].money
-        self.macd=bt.indicators.MACD(self.dataclose)
-        self.volume=self.datas[0].volume
-        self.sma_5 = bt.indicators.MovingAverageSimple(self.datas[0].close, period=5)
-        self.sma_10 = bt.indicators.MovingAverageSimple(self.datas[0].close, period=10)
-        #添加技术按指标
-        self.exp=bt.indicators.ExponentialMovingAverage(self.datas[0].close,period=1)
-        self.wma=bt.indicators.WeightedMovingAverage(self.datas[0],period=1,subplot=True)
-        self.macdh=bt.indicators.MACDHisto(self.datas[0])
-        self.rsi=bt.indicators.RSI(self.datas[0])
-        self.rsi_value=self.rsi.rsi
-    def notify_order(self, order):
-        if order.status in [order.Submitted,order.Accepted]:
-            return
-        if order.status in [order.Completed]:
-            if order.isbuy():
-                self.log('买入的价格 %.2f 买入的成本 %.2f 交易的手续费 %.2f' %
-                         (
-                             order.executed.price,
-                             order.executed.value,
-                             order.executed.comm
-                         ))
-            else:
-                self.log('卖出的价格 %.2f 卖出的成本 %.2f 交易的手续费 %.2f' %
-                         (
-                             order.executed.price,
-                             order.executed.value,
-                             order.executed.comm
-                         ))
-        elif order.status in [order.Canceled,order.Margin,order.Rejected]:
-            self.log('交易取消/交易保证金不足/交易拒绝')
-        self.order=None
-        #交易成功后通知
-    def notify_trader(self,trader):
-        #如果交易没有完成
-        if not trader.iscloaes:
-            return
-        self.log('交易利润，交易的净利润 %.2f %.2f' %(trader.pnl,tarder.pnlcomm))
-    def next(self):
-        #检测是不是在市场
-        if not self.position:
-            #收盘价大于5日均线
-            #如果主力资金流入占比大于5，买入
-            if self.money[0]>5 or self.sma_5[0]>self.sma_10[0]:
-                self.log('主力资金流入占比 %.2f,买入的价格 %.2f' % (self.money[0],self.dataclose[0]))
-                #保持交易状态，避免二次交易,买入全部
-                self.order=self.order_target_percent(target=1.0)
-        else:
-            #如果主力资金流出大于5
-            if self.money[0]<-10 or self.sma_5[0]<self.sma_10[0]:
-                self.log('主力资金流出占比 %.2f,卖出的价格 %.2f' % (self.money[0],self.dataclose[0]))
-                #卖出全部
-                self.order=self.order_target_percent(target=0.0)
-#程序人口
-if __name__=='__main__':
-    #建立大脑
-    cerebro=bt.Cerebro()
-    #添加回测策略
-    cerebro.addstrategy(strategy=TestStrategy)
-    #添加数据
-    df=ak.stock_zh_a_daily(symbol='sz002603')[-100:]
-    #资金流入数据101
+
+
+def winsorize(factor, std=3, have_negative=True):
     '''
-    主力净流入-净额  主力净流入-净占比  超大单净流入-净额  超大单净流入-净占比  大单净流入-净额  
-    大单净流入-净占比  中单净流入-净额  中单净流入-净占比  小单净流入-净额  小单净流入-净占比
+    去极值函数
+    factor:以股票code为index，因子值为value的Series
+    std为几倍的标准差，have_negative 为布尔值，是否包括负值
+    输出Series
     '''
-    df1=ak.stock_individual_fund_flow(stock='002603',market='sz')
-    #合并数据
-    df['money']=df1['主力净流入-净占比'][-100:].astype(float).tolist()
-    #转化日期
-    df['date']=pd.to_datetime(df['date'])
-    #设置时间索引
-    df.index=df['date']
-    #输入数据
-    #dataname数据，fromdate开始时间，todate结束时间，没有就是默认全部数据
-    #需要自己使用自定义的数据类
-    data=user_def_data(dataname=df)#fromdate=datetime(2022,1,1),todate=datetime(2022,11,17))
-    #加入数据
-    cerebro.adddata(data=data)
-    #设置开始资金
-    cerebro.broker.set_cash(1000000000.0)
-    #设置交易费用
-    cerebro.broker.setcommission(commission=0.0)
-    print('开始账户价值 %.2f' % cerebro.broker.getvalue())
-    #必须放在运行前
-    cerebro.addwriter(bt.WriterFile, csv=True, out=r'交易数据.csv')
+    r = factor.dropna().copy()
+    if have_negative == False:
+        r = r[r >= 0]
+    else:
+        pass
+    # 取极值
+    edge_up = r.mean() + std * r.std()
+    edge_low = r.mean() - std * r.std()
+    r[r > edge_up] = edge_up
+    r[r < edge_low] = edge_low
+    return r
+
+
+# 标准化函数：
+def standardize(s, ty=2):
     '''
-    out输出的文件路径
-    close_out关闭输出
-    csv文件格式
+    s为Series数据
+    ty为标准化类型:1 MinMax,2 Standard,3 maxabs
     '''
-    #运行
-    cerebro.run()
-    print('最后账户价值 %.2f' %cerebro.broker.getvalue())
-    cerebro.plot(style='candle')
+    data = s.dropna().copy()
+    if int(ty) == 1:
+        re = (data - data.min()) / (data.max() - data.min())
+    elif ty == 2:
+        re = (data - data.mean()) / data.std()
+    elif ty == 3:
+        re = data / 10 ** np.ceil(np.log10(data.abs().max()))
+    return re
+
+
+# 中性化函数
+# 传入：mkt_cap：以股票为index，市值为value的Series,
+# factor：以股票code为index，因子值为value的Series,
+# 输出：中性化后的因子值series
+def neutralization(factor, mkt_cap=False, industry=True):
+    y = factor
+    if type(mkt_cap) == pd.Series:
+        LnMktCap = mkt_cap.apply(lambda x: math.log(x))
+        if industry:  # 行业、市值
+            dummy_industry = get_industry_exposure(factor.index)
+            x = pd.concat([LnMktCap, dummy_industry.T], axis=1)
+        else:  # 仅市值
+            x = LnMktCap
+    elif industry:  # 仅行业
+        dummy_industry = get_industry_exposure(factor.index)
+        x = dummy_industry.T
+    result = sm.OLS(y.astype(float), x.astype(float)).fit()
+    return result.resid
+
+
+# 为股票池添加行业标记,return df格式 ,为中性化函数的子函数
+def get_industry_exposure(stock_list):
+    df = pd.DataFrame(index=jqdata.get_industries(name='sw_l1').index, columns=stock_list)
+    for stock in stock_list:
+        try:
+            df[stock][get_industry_code_from_security(stock)] = 1
+        except:
+            continue
+    return df.fillna(0)  # 将NaN赋为0
+
+
+# 查询个股所在行业函数代码（申万一级） ,为中性化函数的子函数
+def get_industry_code_from_security(security, date=None):
+    industry_index = jqdata.get_industries(name='sw_l1').index
+    for i in range(0, len(industry_index)):
+        try:
+            index = get_industry_stocks(industry_index[i], date=date).index(security)
+            return industry_index[i]
+        except:
+            continue
+    return u'未找到'
+
+
+# a=get_industry_code_from_security('600519.XSHG', date=pd.datetime.today())
+# print a
+
+# stocks_industry=get_industry_exposure(stocks)
+# print stocks_industry
+
+def get_win_stand_neutra(stocks):
+    h = get_fundamentals(query(valuation.pb_ratio, valuation.code, valuation.market_cap) \
+                         .filter(valuation.code.in_(stocks)))
+    stocks_pb_se = pd.Series(list(h.pb_ratio), index=list(h.code))
+    stocks_pb_win_standse = standardize(winsorize(stocks_pb_se))
+    stocks_mktcap_se = pd.Series(list(h.market_cap), index=list(h.code))
+    stocks_neutra_se = neutralization(stocks_pb_win_standse, stocks_mktcap_se)
+    return stocks_neutra_se
+
+
+# 对沪深300成分股完成
+stocks = get_index_stocks('000300.XSHG')
+print
+get_win_stand_neutra(stocks)

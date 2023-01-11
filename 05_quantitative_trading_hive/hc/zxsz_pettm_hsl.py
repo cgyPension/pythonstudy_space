@@ -19,8 +19,8 @@ pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
 
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/xsz_pettm_hsl_zg.py 20210101 20221227 2 3 7777
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/xsz_pettm_hsl_zg.py 20210101 20221227 5 3 8888
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/zxsz_pettm_hsl.py 20210101 20221227 2 3 7777
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/zxsz_pettm_hsl.py 20210101 20221227 5 3 8888
 if __name__ == '__main__':
     if len(sys.argv) < 6:
         print("请携带所有参数")
@@ -39,6 +39,7 @@ if __name__ == '__main__':
     # 为了向后补数据有值填充
     end_date_5 = pd.to_datetime(end_date + datetime.timedelta(5)).date()
     # 导入到bt 不能有str类型的字段
+    # 排除主观因子
     sql = """
        with tmp_ads_01 as (
        select *
@@ -48,6 +49,7 @@ if __name__ == '__main__':
                --rlike语句匹配正则表达式 like rlike会自动把null的数据去掉 要转换
                and nvl(concept_plates,'保留null') not rlike '次新股'
                and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
+               and stock_label_names rlike 'z小市值'
                and change_percent <5
                and turnover_rate between 1 and 30
                and pe_ttm between 0 and 30
@@ -66,17 +68,16 @@ if __name__ == '__main__':
        select *,
               dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
               dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
-              dense_rank()over(partition by td order by pe_ttm,pe) as dr_pe_ttm,
-              dense_rank()over(partition by td order by sub_factor_score desc) as dr_sub_factor_score
+              dense_rank()over(partition by td order by pe_ttm,pe) as dr_pe_ttm
        from tmp_ads_02
        ),
        tmp_ads_04 as (
                       select *,
-                             '小市值+市盈率TTM+换手率+主观因子' as stock_strategy_name,
+                             'z小市值+市盈率TTM+换手率' as stock_strategy_name,
                              -- 加上量比排序 避免排名重复
                              -- dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
                              -- 权重 
-                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate+dr_pe_ttm+dr_sub_factor_score,volume_ratio_1d) as stock_strategy_ranking
+                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
                       from tmp_ads_03
        )
     select nvl(t1.trade_date,t2.trade_date) as trade_date,
@@ -102,6 +103,6 @@ if __name__ == '__main__':
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
     print('{} 获取数据 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-    bt_rank.hc('小市值+市盈率TTM+换手率+主观因子',pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
+    bt_rank.hc('z小市值+市盈率TTM+换手率',pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

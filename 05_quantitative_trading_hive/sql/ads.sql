@@ -54,6 +54,7 @@ create table if not exists ads_stock_suggest_di
     lhb_num_10d              int comment '最近10天_龙虎榜上榜次数',
     lhb_num_30d              int comment '最近30天_龙虎榜上榜次数',
     lhb_num_60d              int comment '最近60天_龙虎榜上榜次数',
+    hot_rank  int comment '个股热度排名',
     ma_5d                    decimal(20, 4) comment '5日均线',
     ma_10d                   decimal(20, 4) comment '10日均线',
     ma_20d                   decimal(20, 4) comment '20日均线',
@@ -74,7 +75,32 @@ create table if not exists ads_stock_suggest_di
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-
+drop table if exists ads_strategy_yield_di;
+create table if not exists ads_strategy_yield_di
+(
+    trade_date               date comment '交易日期',
+    strategy_id        string comment '股票策略id',
+    strategy_name      string comment '股票策略名称 股票标签名称 +拼接',
+    hold_day           int comment '持股周期',
+    hold_n             int comment '买入排名',
+    yield_td           decimal(20, 2) comment '累计收益率',
+    annual_yield       decimal(20, 2) comment '年化收益率',
+    wp                 decimal(20, 2) comment '胜率 累计',
+    -- 这里算不出来
+    --max_drawdown       decimal(20, 2) comment '最大回撤',
+    --没有必要算
+    --sharp_ratio        decimal(20, 2) comment '夏普比率',
+    yield_1d           decimal(20, 2) comment '今日收益率',
+    yield_7d           decimal(20, 2) comment '近7天收益率',
+    yield_22d          decimal(20, 2) comment '近1月收益率',
+    yield_66d          decimal(20, 2) comment '近3月收益率',
+    --没有必要算
+    --annual_max_retrace decimal(20, 2) comment '年化收益率/最大回撤',
+    update_time        timestamp comment '更新时间'
+) comment '策略收益风控表 这里的收益率会偏高直接计算没有手续费'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc tblproperties ('orc.compress' = 'snappy');
 
 
 

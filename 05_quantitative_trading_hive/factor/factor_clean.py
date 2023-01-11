@@ -23,7 +23,7 @@ def data_clean(factor, new_stock_filter=new_stock_filter, st_filter=st_filter, s
     factor = factor.mask(new_stock_filter).mask(st_filter).mask(suspended_filter).mask(limit_up_down_filter).mask(
         ~index_fix).dropna(how='all')
     print('券池过滤完毕')
-    # 离群值处理
+    # 去极值
     factor = factor.apply(lambda x: filter_extreme_MAD(x, 3), axis=1)
     # 标准化
     factor = factor.sub(factor.mean(axis=1), axis=0).div(factor.std(axis=1), axis=0)  # add

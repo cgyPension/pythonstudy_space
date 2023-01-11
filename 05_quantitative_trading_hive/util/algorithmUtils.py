@@ -15,7 +15,7 @@ def max_drawdown(df):
     '''计算最大回撤
         df[name] 传入收盘价
     '''
-    md=((df.cummax()-df)/df.cummax()).max()
+    md=((df.close.cummax()-df.close)/df.close.cummax()).max()
     return round(md*100,2)
 
 def get_holding_yield_qc(df):
@@ -47,7 +47,7 @@ def get_holding_yield_tj(df):
     # 年化收益率
     # dict['annual_ret'] = round((pow(1 + df['yield_td'].iloc[-1], 250 / len(df)) - 1), 2)
     dict['annual_ret'] = round((pow(1 + df['yield_td'].iloc[-1]/100, 250 / len(df)) - 1)*100, 2)
-    dict['max_drawdown']= max_drawdown(df.close)
+    dict['max_drawdown']= max_drawdown(df)
     # 夏普比率 表示每承受一单位总风险，会产生多少的超额报酬，可以同时对策略的收益与风险进行综合考虑。可以理解为经过风险调整后的收益率。计算公式如下，该值越大越好
     # 超额收益率以无风险收益率为基准
     # 公认默认无风险收益率为年化3%
@@ -56,13 +56,14 @@ def get_holding_yield_tj(df):
     dict['sharp_ratio'] = round(np.sqrt(len(exReturn)) * exReturn.mean() / exReturn.std(), 2)
     return dict
 
+def ta_rsi(close:pd.Series,n):
+    return ta.RSI(close, timeperiod=n)
 
 def mt_rsi(close:pd.Series,n):
+    '''不知道为啥在factor_dwd.py算出来都是kong'''
     dif = close - mt.REF(close, 1)
     return mt.RD(mt.SMA(mt.MAX(dif, 0), n) / mt.SMA(mt.ABS(dif), n) * 100)
 
-def ta_rsi(close:pd.Series,n):
-    return ta.RSI(close, timeperiod=n)
 
 def dwd_factor(df):
 

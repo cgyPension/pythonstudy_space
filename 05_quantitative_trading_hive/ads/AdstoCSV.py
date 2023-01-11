@@ -56,6 +56,80 @@ def get_data(start_date,stock_strategy_name='all量化投资操作'):
         print(e)
     print('{}：执行完毕！！！'.format(appName))
 
+def get_zt(start_date,stock_strategy_name='涨停'):
+    try:
+        appName = os.path.basename(__file__)
+        # 本地模式
+        spark = get_spark(appName)
+        start_date=pd.to_datetime(start_date).date()
+        # 新浪财经的股票交易日历数据
+        df = ak.tool_trade_date_hist_sina()
+        df = df[df['trade_date'] > start_date].reset_index(drop=True)
+        next_date = df.iat[0,0] # 下一个交易日
+
+
+        spark_df = spark.sql(
+            """
+                select substr(stock_code,3)
+                from stock.dwd_stock_strong_di
+                where td = '%s'
+                order by lx_Sealing_nums desc
+            """% (start_date))
+
+        pd_df = spark_df.toPandas()
+
+        # 写入文件
+        print(next_date.strftime('%m%d') + stock_strategy_name)
+        print(next_date.strftime('%Y%m%d') + stock_strategy_name)
+        # 定时上传到ptrade的文件路径
+        # path = 'C:/Users/Administrator/Desktop/trade_data.csv'
+        # .sel 同花顺要求的格式
+        path1 = '/opt/code/pythonstudy_space/{}.sel'.format(stock_strategy_name)
+        # .txt 东方财富要求格式
+        path2 = '/opt/code/pythonstudy_space/{}.txt'.format(stock_strategy_name)
+        pd_df.to_csv(path1, index=False, header=0,mode='w', encoding='utf-8')
+        # pd_df.to_csv(path2, index=False, header=0,mode='w', encoding='utf-8')
+    except Exception as e:
+        print(e)
+    print('{}：执行完毕！！！'.format(appName))
+
+def get_qs(start_date,stock_strategy_name='强势'):
+    try:
+        appName = os.path.basename(__file__)
+        # 本地模式
+        spark = get_spark(appName)
+        start_date=pd.to_datetime(start_date).date()
+        # 新浪财经的股票交易日历数据
+        df = ak.tool_trade_date_hist_sina()
+        df = df[df['trade_date'] > start_date].reset_index(drop=True)
+        next_date = df.iat[0,0] # 下一个交易日
+
+
+        spark_df = spark.sql(
+            """
+                select substr(stock_code,3)
+                from stock.dwd_stock_strong_di
+                where td = '%s'
+                order by change_percent
+            """% (start_date))
+
+        pd_df = spark_df.toPandas()
+
+        # 写入文件
+        print(next_date.strftime('%m%d') + stock_strategy_name)
+        print(next_date.strftime('%Y%m%d') + stock_strategy_name)
+        # 定时上传到ptrade的文件路径
+        # path = 'C:/Users/Administrator/Desktop/trade_data.csv'
+        # .sel 同花顺要求的格式
+        path1 = '/opt/code/pythonstudy_space/{}.sel'.format(stock_strategy_name)
+        # .txt 东方财富要求格式
+        path2 = '/opt/code/pythonstudy_space/{}.txt'.format(stock_strategy_name)
+        pd_df.to_csv(path1, index=False, header=0,mode='w', encoding='utf-8')
+        # pd_df.to_csv(path2, index=False, header=0,mode='w', encoding='utf-8')
+    except Exception as e:
+        print(e)
+    print('{}：执行完毕！！！'.format(appName))
+
 # spark-submit /opt/code/05_quantitative_trading_hive/ads/AdsSendMail.py
 # nohup AdsSendMail.py >> my.log 2>&1 &
 # python AdsSendMail.py

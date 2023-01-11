@@ -33,7 +33,8 @@ def get_data(start_date, end_date):
    pd_df = pd.DataFrame()
    if daterange.empty:
        # 增量 覆盖
-       end_date_year_start = date(pd.to_datetime(start_date).year, 1, 1) # 获取日期年的一月一日
+       # end_date_year_start = date(pd.to_datetime(start_date).year, 1, 1) # 获取日期年的一月一日
+       end_date_year_start = pd.to_datetime('20210101').date()
        last_date = pd.date_range(end_date_year_start, pd.to_datetime(end_date).date(), freq='Q-Mar')
        df = pd.DataFrame()
        df['time'] = last_date

@@ -4,10 +4,10 @@ import os
 import sys
 import time
 import random
-
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
+from bak.情绪数据源 import *
 from util import btUtils
 import warnings
 from datetime import date
@@ -20,7 +20,10 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 from decimal import Decimal
 from util.CommonUtils import get_spark
-
+from tqdm import tqdm
+from lxml import etree
+import requests
+import json
 warnings.filterwarnings("ignore")
 # 输出显示设置
 pd.options.display.max_rows=None
@@ -33,6 +36,30 @@ plt.rcParams['font.sans-serif']=['FangSong']   #中文仿宋
 plt.rcParams['font.sans-serif']=['SimHei']     #用来正常显示中文标签
 plt.rcParams['axes.unicode_minus']=False       #用来正常显示负号
 
+def get_data():
+    start_date = '20230103'
+    end_date = '20230103'
+    # start_date = '20221203'
+    # end_date = '20221203'
+    daterange = pd.date_range(pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date(), freq='Q-Mar')
+    print(daterange)
+    pd_df = pd.DataFrame()
+    if daterange.empty:
+        # 增量 覆盖
+        end_date_year_start = pd.to_datetime('20210101').date()
+        last_date = pd.date_range(end_date_year_start, pd.to_datetime(end_date).date(), freq='Q-Mar')
+        print(last_date)
+        if last_date.empty:
+            print('kkkkkkk')
+            return
+        df = pd.DataFrame()
+        df['time'] = last_date
+        # 上一期的日期
+        single_date = df.iat[df.idxmax()[0], 0]
+        print(single_date)
+    else:
+        print('else')
+    print('main')
 
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/test/test.py
 if __name__ == '__main__':
@@ -101,5 +128,41 @@ if __name__ == '__main__':
     #     num,kk = pa_group[i][0],pa_group[i][1]
     #     print(num,kk)
 
-    stock_hot_rank_em_df = ak.stock_hot_rank_em()
-    print(stock_hot_rank_em_df)
+    # stock_hot_rank_em_df = ak.stock_hot_rank_em()
+    # print(stock_hot_rank_em_df)
+
+    # stock_hot_follow_xq_df = ak.stock_hot_follow_xq(symbol="最热门")
+    # print(stock_hot_follow_xq_df)
+
+    # get_data()
+    # df = ak.stock_lrb_em(date='20221231')
+    # df = ak.stock_board_concept_name_em()
+    # print(df)
+    import numpy as np
+    import statsmodels.api as sm
+    import matplotlib.pyplot as plt
+
+    # 构造函数
+    number = 50
+    group = np.zeros(number, int)
+    print(group)
+    group[20:40] = 1
+    group[40:] = 2
+    print(group)
+    category = sm.categorical(group, drop=True)  # 构造分类变量
+    print(category)
+    x = np.linspace(0, 10, number)
+    X = np.column_stack((x, category))
+    X = sm.add_constant(X)
+    bata = np.array([2, 3, 4, 5, 6])
+    e = np.random.normal(size=number)
+    y = np.dot(X, bata) + e
+
+    # 建立方程
+    model = sm.OLS(y, X).fit()
+    # print(model.summary())
+        #
+        # # 东方财富-数据中心-年报季报-业绩快报-利润表
+        # df = ak.stock_lrb_em(date=single_date.strftime("%Y%m%d"))
+        # print(df)
+

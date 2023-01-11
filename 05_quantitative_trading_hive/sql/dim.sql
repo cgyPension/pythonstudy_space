@@ -32,14 +32,21 @@ insert into dim_stock_label VALUES
        ('预盈预增','概率板标签',1,null,current_timestamp()),
        ('预亏预减-','概率板标签',1,null,current_timestamp()),
 
-       ('行业rps>=90','行业板块三线欧奈尔rps>=90',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
-       ('概念rps>=90','概念板块三线欧奈尔rps>=90',1,null,current_timestamp()),
+       ('行业rps>=87','行业板块三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
+       ('概念rps>=87','概念板块三线欧奈尔rps>=87',1,null,current_timestamp()),
+       ('个股rps>=87','个股三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
+       ('个股rps_10_20金叉','rps_10d>rps_20d and 前一日rps_10d<rps_20d',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
+       ('个股rps_10_20死叉-','rps_10d<rps_20d and 前一日rps_10d>rps_20d',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
+
+       ('rs>=0','欧奈尔RS',1,'',current_timestamp()),
+
        ('行业板块涨跌幅前10%%-','百分比排序 desc',1,null,current_timestamp()),
        ('连续N天量价齐升','连续N天量比>1 and 涨幅>0',0,null,current_timestamp()),
 
-       ('rsi_6d超卖','rsi_6d<=20 超卖区 则买入',1,'RSI = 100 × 前N日漲幅的平均值 ÷ ( 前N日漲幅的平均值 + 前N日跌幅的平均值 ) 同花顺上的是平滑rsi',current_timestamp()),
+       ('rsi_6d超卖','rsi_6d<=20 超卖区 则买入',1,'用的是ta 同花顺上的平滑rsi',current_timestamp()),
        ('rsi_6d超买-','rsi_6d>=80 超买区 则卖出',1,null,current_timestamp()),
-
+       ('rsi_6_12金叉','rsi_6d>rsi_12d and 前一日rsi_6d<rsi_12d',1,null,current_timestamp()),
+       ('rsi_6_12死叉-','rsi_6d<rsi_12d and 前一日rsi_6d>rsi_12d',1,null,current_timestamp()),
 
 
        ('adtm买入信号','',0,null,current_timestamp()),
@@ -47,7 +54,6 @@ insert into dim_stock_label VALUES
        ('bbiboll买入信号','',0,null,current_timestamp()),
        ('dpo买入信号','',0,null,current_timestamp()),
        ('cci买入信号','',0,null,current_timestamp()),
-       ('rsi金叉','',0,null,current_timestamp()),
        ('cr金叉','',0,null,current_timestamp()),
        ('塔形底','',0,null,current_timestamp()),
        ('业绩预增','',0,null,current_timestamp()),

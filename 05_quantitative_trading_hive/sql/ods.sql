@@ -315,4 +315,22 @@ create table if not exists ods_stock_strong_pool_di
     row format delimited fields terminated by '\t'
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
+
+drop table if exists ods_stock_hot_rank_wc_di;
+create table if not exists ods_stock_hot_rank_wc_di
+(
+    trade_date     date comment '交易日期',
+    stock_code     string comment '股票代码',
+    stock_name     string comment '股票名称',
+    new_price     decimal(20, 4) comment '最新价',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    hot  decimal(20, 1) comment '个股热度',
+    hot_rank  int comment '个股热度排名',
+    update_time    timestamp comment '更新时间'
+) comment '问财-热门股票排名数据'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
 --股票指数

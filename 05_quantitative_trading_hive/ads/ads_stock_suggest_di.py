@@ -29,7 +29,7 @@ def get_data(start_date, end_date):
    spark = get_spark(appName)
 
     # 如果开始日期等于20210101  则start_date = 今天
-   start_date = date.today().strftime('%Y%m%d') if start_date == '20210101' else start_date
+   # start_date = date.today().strftime('%Y%m%d') if start_date == '20210101' else start_date
 
    s_date = '20210101'
    end_date = pd.to_datetime(end_date).date()
@@ -43,7 +43,7 @@ def get_data(start_date, end_date):
    else:
        start_date = pd.to_datetime(daterange_df[0]).date()
 
-   # todo ====================================================================  小市值+市盈率TTM+换手率+主观因子  ==================================================================
+   # todo ====================================================================  z小市值+市盈率TTM+换手率+主观因子  ==================================================================
    spark.sql(
        """
        with tmp_ads_01 as (
@@ -54,6 +54,7 @@ def get_data(start_date, end_date):
                --rlike语句匹配正则表达式 like rlike会自动把null的数据去掉 要转换
                and nvl(concept_plates,'保留null') not rlike '次新股'
                and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
+               and stock_label_names rlike 'z小市值'
                and change_percent <5
                and turnover_rate between 1 and 30
                and pe_ttm between 0 and 30
@@ -78,7 +79,7 @@ def get_data(start_date, end_date):
        ),
        tmp_ads_04 as (
                       select *,
-                             '小市值+市盈率TTM+换手率+主观因子' as stock_strategy_name,
+                             'z小市值+市盈率TTM+换手率+主观因子' as stock_strategy_name,
                              -- 加上量比排序 避免排名重复
                              -- dense_rank()over(partition by td order by dr_tmv+dr_turnover_rate+dr_pe_ttm,volume_ratio_1d) as stock_strategy_ranking
                              -- 权重 
@@ -134,6 +135,7 @@ def get_data(start_date, end_date):
               lhb_num_10d,
               lhb_num_30d,
               lhb_num_60d,
+              hot_rank,
               ma_5d,
               ma_10d,
               ma_20d,
@@ -153,9 +155,9 @@ def get_data(start_date, end_date):
        where stock_strategy_ranking <=10
        order by stock_strategy_ranking
           """ % (start_date, end_date)
-   ).createOrReplaceTempView('xsz_pettm_hsl_zg')
+   ).createOrReplaceTempView('zxsz_pettm_hsl_zg')
 
-   # todo ====================================================================  行业rps+小市值+换手率  ==================================================================
+   # todo ====================================================================  行业rps+z小市值+换手率  ==================================================================
    spark.sql(
        """
        with tmp_ads_01 as (
@@ -165,8 +167,8 @@ def get_data(start_date, end_date):
                and stock_name not rlike 'ST'
                --rlike语句匹配正则表达式 like rlike会自动把null的数据去掉 要转换
                and nvl(concept_plates,'保留null') not rlike '次新股'
-               and stock_label_names rlike '行业rps>=90'
-               -- and stock_label_names rlike '概念rps>=90'
+               and stock_label_names rlike '行业rps>=87'
+               -- and stock_label_names rlike '概念rps>=87'
                and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
                and turnover_rate between 1 and 30
                and pe_ttm between 0 and 30
@@ -187,7 +189,7 @@ def get_data(start_date, end_date):
        ),
        tmp_ads_04 as (
                       select *,
-                             '行业rps+小市值+换手率' as stock_strategy_name,
+                             '行业rps+z小市值+换手率' as stock_strategy_name,
                              dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate,volume_ratio_1d) as stock_strategy_ranking
                       from tmp_ads_03
        )
@@ -240,6 +242,7 @@ def get_data(start_date, end_date):
               lhb_num_10d,
               lhb_num_30d,
               lhb_num_60d,
+              hot_rank,
               ma_5d,
               ma_10d,
               ma_20d,
@@ -259,18 +262,122 @@ def get_data(start_date, end_date):
        where stock_strategy_ranking <=10
        order by stock_strategy_ranking
           """ % (start_date, end_date)
-   ).createOrReplaceTempView('hyrps_xsz_hsl')
+   ).createOrReplaceTempView('hyrps_zxsz_hsl')
 
-   # todo ====================================================================  量价齐升+小市值  ==================================================================
+   # todo ====================================================================  量价齐升+z小市值  ==================================================================
+   # spark.sql(
+   #     """
+   #     with tmp_ads_01 as (
+   #     select *
+   #     from stock.dwd_stock_quotes_di
+   #     where td between '%s' and '%s'
+   #             and stock_name not rlike 'ST'
+   #             and nvl(concept_plates,'保留null') not rlike '次新股'
+   #             and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
+   #     ),
+   #     tmp_ads_02 as (
+   #     --去除or 停复牌
+   #     select *
+   #     from tmp_ads_01
+   #     where suspension_time is null
+   #           or estimated_resumption_time < date_add(trade_date,1)
+   #     ),
+   #     --要剔除玩所有不要股票再排序 否则排名会变动
+   #     tmp_ads_03 as (
+   #     select *,
+   #            dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
+   #            dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate
+   #     from tmp_ads_02
+   #     ),
+   #     tmp_ads_04 as (
+   #                    select *,
+   #                           '连续2天量价齐升+z小市值+换手率' as stock_strategy_name,
+   #                           dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate,volume_ratio_1d) as stock_strategy_ranking
+   #                    from tmp_ads_03
+   #     )
+   #     select trade_date,
+   #            stock_code,
+   #            stock_name,
+   #            open_price,
+   #            close_price,
+   #            high_price,
+   #            low_price,
+   #            volume,
+   #            volume_ratio_1d,
+   #            volume_ratio_5d,
+   #            turnover,
+   #            amplitude,
+   #            change_percent,
+   #            change_amount,
+   #            turnover_rate,
+   #            turnover_rate_5d,
+   #            turnover_rate_10d,
+   #            total_market_value,
+   #            z_total_market_value,
+   #            industry_plate,
+   #            concept_plates,
+   #            pe,
+   #            pe_ttm,
+   #            pb,
+   #            ps,
+   #            ps_ttm,
+   #            dv_ratio,
+   #            dv_ttm,
+   #            net_profit,
+   #            net_profit_yr,
+   #            total_business_income,
+   #            total_business_income_yr,
+   #            business_fee,
+   #            sales_fee,
+   #            management_fee,
+   #            finance_fee,
+   #            total_business_fee,
+   #            business_profit,
+   #            total_profit,
+   #            ps_business_cash_flow,
+   #            return_on_equity,
+   #            npadnrgal,
+   #            net_profit_growth_rate,
+   #            interprets,
+   #            reason_for_lhbs,
+   #            lhb_num_5d,
+   #            lhb_num_10d,
+   #            lhb_num_30d,
+   #            lhb_num_60d,
+   #            hot_rank,
+   #            ma_5d,
+   #            ma_10d,
+   #            ma_20d,
+   #            ma_30d,
+   #            ma_60d,
+   #            stock_label_names,
+   #            stock_label_num,
+   #            sub_factor_names,
+   #            sub_factor_score,
+   #            stock_strategy_name,
+   #            stock_strategy_ranking,
+   #            holding_yield_2d,
+   #            holding_yield_5d,
+   #            current_timestamp() as update_time,
+   #            trade_date as td
+   #     from tmp_ads_04
+   #     where stock_strategy_ranking <=10
+   #     order by stock_strategy_ranking
+   #        """ % (start_date, end_date)
+   # ).createOrReplaceTempView('2ljqs_zxsz_hsl')
+
+   # todo ====================================================================  涨停+2连板+量比+换手率  ==================================================================
    spark.sql(
        """
        with tmp_ads_01 as (
-       select *
-       from stock.dwd_stock_quotes_di
-       where td between '%s' and '%s'
-               and stock_name not rlike 'ST'
-               and nvl(concept_plates,'保留null') not rlike '次新股'
-               and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
+       select t2.*
+       from stock.dwd_stock_zt_di t1
+       left join stock.dwd_stock_quotes_di t2
+            on t1.trade_date = t2.trade_date
+            and t1.stock_code = t2.stock_code
+            and t2.td between '%s' and '%s'
+       where t1.td between '%s' and '%s'
+               and t1.lx_sealing_nums = '2'
        ),
        tmp_ads_02 as (
        --去除or 停复牌
@@ -279,17 +386,16 @@ def get_data(start_date, end_date):
        where suspension_time is null
              or estimated_resumption_time < date_add(trade_date,1)
        ),
-       --要剔除玩所有不要股票再排序 否则排名会变动
        tmp_ads_03 as (
-       select *,
-              dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
-              dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate
-       from tmp_ads_02
+                      select *,
+                             dense_rank()over(partition by td order by volume_ratio_1d) as dr_volume_ratio_1d,
+                             dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate
+                      from tmp_ads_02
        ),
        tmp_ads_04 as (
                       select *,
-                             '量价齐升+小市值' as stock_strategy_name,
-                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate,volume_ratio_1d) as stock_strategy_ranking
+                             '涨停+2连板+量比+换手率' as stock_strategy_name,
+                             dense_rank()over(partition by td order by dr_volume_ratio_1d+dr_turnover_rate,dr_turnover_rate) as stock_strategy_ranking
                       from tmp_ads_03
        )
        select trade_date,
@@ -341,6 +447,7 @@ def get_data(start_date, end_date):
               lhb_num_10d,
               lhb_num_30d,
               lhb_num_60d,
+              hot_rank,
               ma_5d,
               ma_10d,
               ma_20d,
@@ -359,115 +466,15 @@ def get_data(start_date, end_date):
        from tmp_ads_04
        where stock_strategy_ranking <=10
        order by stock_strategy_ranking
-          """ % (start_date, end_date)
-   ).createOrReplaceTempView('ljqs_')
-
-   # todo ====================================================================  二板  ==================================================================
-   spark.sql(
-       """
-       with tmp_ads_01 as (
-       select *
-       from stock.dwd_stock_quotes_di
-       where td between '%s' and '%s'
-               and stock_name not rlike 'ST'
-               and nvl(concept_plates,'保留null') not rlike '次新股'
-               --and stock_label_names rlike '行业rps>=90'
-               --and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
-       ),
-       tmp_ads_02 as (
-       --去除or 停复牌
-       select *
-       from tmp_ads_01
-       where suspension_time is null
-             or estimated_resumption_time < date_add(trade_date,1)
-       ),
-       --要剔除玩所有不要股票再排序 否则排名会变动
-       tmp_ads_03 as (
-       select *,
-              dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
-              dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate
-       from tmp_ads_02
-       ),
-       tmp_ads_04 as (
-                      select *,
-                             '二板' as stock_strategy_name,
-                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate,volume_ratio_1d) as stock_strategy_ranking
-                      from tmp_ads_03
-       )
-       select trade_date,
-              stock_code,
-              stock_name,
-              open_price,
-              close_price,
-              high_price,
-              low_price,
-              volume,
-              volume_ratio_1d,
-              volume_ratio_5d,
-              turnover,
-              amplitude,
-              change_percent,
-              change_amount,
-              turnover_rate,
-              turnover_rate_5d,
-              turnover_rate_10d,
-              total_market_value,
-              z_total_market_value,
-              industry_plate,
-              concept_plates,
-              pe,
-              pe_ttm,
-              pb,
-              ps,
-              ps_ttm,
-              dv_ratio,
-              dv_ttm,
-              net_profit,
-              net_profit_yr,
-              total_business_income,
-              total_business_income_yr,
-              business_fee,
-              sales_fee,
-              management_fee,
-              finance_fee,
-              total_business_fee,
-              business_profit,
-              total_profit,
-              ps_business_cash_flow,
-              return_on_equity,
-              npadnrgal,
-              net_profit_growth_rate,
-              interprets,
-              reason_for_lhbs,
-              lhb_num_5d,
-              lhb_num_10d,
-              lhb_num_30d,
-              lhb_num_60d,
-              ma_5d,
-              ma_10d,
-              ma_20d,
-              ma_30d,
-              ma_60d,
-              stock_label_names,
-              stock_label_num,
-              sub_factor_names,
-              sub_factor_score,
-              stock_strategy_name,
-              stock_strategy_ranking,
-              holding_yield_2d,
-              holding_yield_5d,
-              current_timestamp() as update_time,
-              trade_date as td
-       from tmp_ads_04
-       where stock_strategy_ranking <=10
-       order by stock_strategy_ranking
-          """ % (start_date, end_date)
-   ).createOrReplaceTempView('eb')
+          """ % (start_date, end_date,start_date, end_date)
+   ).createOrReplaceTempView('zt_2lbl_lb_hsl')
 
    result_sql = '''
-   select * from xsz_pettm_hsl_zg
+   select * from zxsz_pettm_hsl_zg
    union all
-   select * from hyrps_xsz_hsl
+   select * from hyrps_zxsz_hsl
+   union all
+   select * from zt_2lbl_lb_hsl
    '''
    result_df = spark.sql(result_sql)
 

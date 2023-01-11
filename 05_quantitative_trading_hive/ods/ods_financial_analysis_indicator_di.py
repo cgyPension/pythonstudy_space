@@ -127,7 +127,7 @@ def get_data(ak_code, ak_name,start_date):
             print(e)
     return pd.DataFrame
 
-# python /opt/code/05_quantitative_trading_hive/ods/ods_financial_analysis_indicator_di.py all
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_financial_analysis_indicator_di.py all
 # spark-submit /opt/code/05_quantitative_trading_hive/ods/ods_financial_analysis_indicator_di.py all
 # nohup python ods_financial_analysis_indicator_di.py update 20221010 >> my.log 2>&1 &
 # 这个全量很慢 平时不能全量 要取最新日期

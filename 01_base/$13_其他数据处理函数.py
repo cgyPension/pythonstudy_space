@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import statsmodels
+import statsmodels.api as sm
 
 def test_stack():
     # 列旋转函数
@@ -97,16 +99,42 @@ def test_fillna():
 
 
 
-def test_xxx():
+def test_eval():
     '''eval() 函数用来执行一个字符串表达式，并返回表达式的值。
        eval() 执行完要返回结果，而 exec() 执行完不返回结果'''
     x = 7
     print(eval('3 * x'))
     print(eval('pow(2,2)'))
 
-def test_exec():
+def test_OLS():
+    '''
+    OLS就是用样本数据拟合出最小二乘最小的系数组合
+    自变量和因变量都只能是数字
+    第一个输入 endog 是回归模型中的因变量, 输入是一个维向量。第二个输入 exog 是自变量，即个样本点构成的维数组
+    missing：可用的选项是“无”、“下降”和“加注”。如果“无”，则不进行 nan 检查。如果 'drop'，任何带有 nans 的观察结果都会被丢弃。如果 'raise'，则会引发错误。默认为“无”。
+    hasconst：指示 RHS 是否包含用户提供的常量。如果为 True，则不检查常量并将 k_constant 设置为 1，并且计算所有结果统计信息，就好像存在常量一样。如果为 False，则不检查常量并将 k_constant 设置为 0
 
-    pass
+    对于行业回归，只能用多个行业做字段0 和1
+    '''
+    df = pd.DataFrame({'x1': [1, 2, 2, 3],
+                      'x2': [4, 3, 2, 1],
+                      'x3': [3, 2, 4, 1],
+                      'x4': ['电气', '银行', '食品', '光伏']})
+    print(df)
+    # model = sm.OLS(df['x1'],df['x4'])
+    # 将分类变量转变为虚拟变量 方式一  prefix='x4' 可以加前缀
+    # dummies = pd.get_dummies(df['x4'],prefix='x4')
+    # df = df.drop(['x4'],axis=1).join(dummies)
+    # print(df)
+    # 将分类变量转变为虚拟变量 方式二
+    # a = sm.categorical(df['x4'],drop=True)
+    # df = df.drop(['x4'], axis=1).join(a)
+    # print(df)
+
+    model = sm.OLS(df['x1'],df['x2'],hasconst=False,missing='drop')
+    results = model.fit()
+    print(results.resid)
+
 
 def test_xxx():
     pass
@@ -124,8 +152,7 @@ def test_xxx():
     pass
 
 if __name__ == '__main__':
-    test_stack()
-
+    test_OLS()
 
 
 

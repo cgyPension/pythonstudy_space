@@ -29,6 +29,28 @@ create table if not exists factor
     tblproperties ('orc.compress' = 'snappy');
 
 
+drop table if exists stock_technical_indicators_df;
+create table if not exists stock_technical_indicators_df
+(
+    trade_date     date comment '交易日期',
+    stock_code     string comment '股票代码',
+    stock_name     string comment '股票名称',
+    rsi_6d     decimal(20, 6) comment 'rsi_6d',
+    rsi_12d decimal(20, 6) comment 'rsi_12d',
+    ma_5d                     decimal(20, 4) comment '5日均线',
+    ma_10d                    decimal(20, 4) comment '10日均线',
+    ma_20d                    decimal(20, 4) comment '20日均线',
+    ma_50d                    decimal(20, 4) comment '50日均线',
+    ma_120d                    decimal(20, 4) comment '120日均线',
+    ma_200d                    decimal(20, 4) comment '200日均线',
+    ma_250d                    decimal(20, 4) comment '250日均线',
+    update_time    timestamp comment '更新时间'
+) comment 'python计算的指标'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
 
 
 

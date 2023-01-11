@@ -191,7 +191,7 @@ def run_cerebro_dash(zx_df,cc_df,analyzer_df,tl_df,strategy_name,start_date,end_
     # '交易日期', '标签', '累计收益率'
     # 剔除不交易日期 要区间范围内的 否则会有bug
     dt_all = pd.date_range(min(zx_df['交易日期']),max(zx_df['交易日期']))
-    print('最小最大：',type(min(zx_df['交易日期'])),min(zx_df['交易日期']),max(zx_df['交易日期']))
+    # print('最小最大：',type(min(zx_df['交易日期'])),min(zx_df['交易日期']),max(zx_df['交易日期']))
     dt_all = [pd.to_datetime(d).date() for d in dt_all]
     dt_breaks = list(set(dt_all) - set(zx_df['交易日期']))
     # print('dt_breaks：',dt_breaks,type(dt_breaks))

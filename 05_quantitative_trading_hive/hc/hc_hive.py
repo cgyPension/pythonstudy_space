@@ -20,10 +20,10 @@ pd.set_option('display.unicode.east_asian_width', True)
 
 
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_hive.py 20221101 20221201 2 3 7777
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py 20210101 20221201 5 3 8000
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py 20210101 20221201 22 3 8000
-# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py update 20210101 20221201 >> my.log 2>&1 &
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py update 20210101 20221201
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/zxsz_pettm_hsl_zg.py 20210101 20221201 5 3 8000
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/zxsz_pettm_hsl_zg.py 20210101 20221201 22 3 8000
+# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/zxsz_pettm_hsl_zg.py update 20210101 20221201 >> my.log 2>&1 &
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/zxsz_pettm_hsl_zg.py update 20210101 20221201
 if __name__ == '__main__':
     # if len(sys.argv) < 6:
     #     print("请携带所有参数")

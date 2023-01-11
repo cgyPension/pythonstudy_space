@@ -9,6 +9,7 @@ import pandas as pd
 import talib as ta
 from MyTT import *
 import akshare as ak
+import finta as ft
 # 输出显示设置
 pd.options.display.max_rows=None
 pd.options.display.max_columns=None
@@ -37,7 +38,7 @@ def registerUDF(spark):
 # 这个要用远程调试执行 不然本地读不了linux
 if __name__ == '__main__':
     appName = os.path.basename(__file__)
-    df = ak.stock_zh_a_hist(symbol='600104', period='daily', start_date='20221201', end_date='20221223',
+    df = ak.stock_zh_a_hist(symbol='688617', period='daily', start_date='20210101', end_date='20230104',
                             adjust='qfq')
 
     CLOSE = df['收盘'].values
@@ -51,13 +52,15 @@ if __name__ == '__main__':
     df['ma5'] = MA5
     df['ma10'] = MA10
     df['ta_rsi_6d']=ta.RSI(CLOSE, timeperiod=6)
+    df['ta_rsi_12d']=ta.RSI(CLOSE, timeperiod=12)
     df['mt_rsi_6d']=mt_rsi(CLOSE,6)
+    df['mt_rsi_12d']=mt_rsi(CLOSE,12)
 
     print(df)
 
-    print('BTC5日均线', MA5[-1])  # 只取最后一个数
-    print('BTC10日均线', RET(MA10))  # RET(MA10) == MA10[-1]
-    print('今天5日线是否上穿10日线', RET(CROSS(MA5, MA10)))
-    print('最近5天收盘价全都大于10日线吗？', EVERY(CLOSE > MA10, 5))
+    # print('BTC5日均线', MA5[-1])  # 只取最后一个数
+    # print('BTC10日均线', RET(MA10))  # RET(MA10) == MA10[-1]
+    # print('今天5日线是否上穿10日线', RET(CROSS(MA5, MA10)))
+    # print('最近5天收盘价全都大于10日线吗？', EVERY(CLOSE > MA10, 5))
     print('{}：执行完毕！！！'.format(appName))
 

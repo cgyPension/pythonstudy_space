@@ -216,8 +216,8 @@ def get_data():
 
 
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/hc_mu.py
-# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py update 20210101 20221201 >> my.log 2>&1 &
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/xsz_pettm_hsl_zg.py update 20210101 20221201
+# nohup python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/zxsz_pettm_hsl_zg.py update 20210101 20221201 >> my.log 2>&1 &
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/zxsz_pettm_hsl_zg.py update 20210101 20221201
 if __name__ == '__main__':
     appName = os.path.basename(__file__)
     start_time = time.time()

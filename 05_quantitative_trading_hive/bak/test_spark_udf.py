@@ -37,6 +37,11 @@ def mt_rsi(close:pd.Series,n) -> pd.Series:
     dif = close - mt.REF(close, 1)
     return mt.RD(mt.SMA(mt.MAX(dif, 0), n) / mt.SMA(mt.ABS(dif), n) * 100)
 
+def clip(col,a,b):
+    col = pd.Series(col)
+    return col.clip(a, b)
+
+
 '''环境有问题单独识别不了别的文件'''
 def registerUDF(spark):
     '''批量注册udf'''
@@ -46,6 +51,8 @@ def registerUDF(spark):
     # RSI = 100 × 前N日漲幅的平均值 ÷ ( 前N日漲幅的平均值 + 前N日跌幅的平均值 )
     spark_udf.register('ta_rsi', ta_rsi, returnType=DecimalType(precision=20,scale=4))
     spark_udf.register('mt_rsi', mt_rsi, returnType=DecimalType(precision=20,scale=4))
+    spark_udf.register('clip',clip, returnType=DecimalType(precision=20,scale=4))
+
 
 
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/bak/test_spark_udf.py
@@ -70,25 +77,27 @@ if __name__ == '__main__':
     # where td = '2022-12-01'
     #     """).show(20)
 
+    spark.sql("""select clip(number,3,6) from test.temp_median""").show()
 
     # RSI = 100 × 前N日漲幅的平均值 ÷ ( 前N日漲幅的平均值 + 前N日跌幅的平均值 )
-    spark_df = spark.sql("""
-        select trade_date,
-           stock_code,
-           stock_name,
-           close_price,
-           sum(if(change_amount>0,change_amount,0))over(partition by stock_code order by trade_date rows between 5 preceding and current row)/6/(
-           sum(if(change_amount>0,change_amount,0))over(partition by stock_code order by trade_date rows between 5 preceding and current row)/6+
-           abs(sum(if(change_amount<0,change_amount,0))over(partition by stock_code order by trade_date rows between 5 preceding and current row))/6)*100 as rsi_6d
-        from stock.ods_dc_stock_quotes_di
-        where td >= '2022-12-01'
-        """)
+    # spark_df = spark.sql("""
+    #     select trade_date,
+    #        stock_code,
+    #        stock_name,
+    #        close_price,
+    #        sum(if(change_amount>0,change_amount,0))over(partition by stock_code order by trade_date rows between 5 preceding and current row)/6/(
+    #        sum(if(change_amount>0,change_amount,0))over(partition by stock_code order by trade_date rows between 5 preceding and current row)/6+
+    #        abs(sum(if(change_amount<0,change_amount,0))over(partition by stock_code order by trade_date rows between 5 preceding and current row))/6)*100 as rsi_6d
+    #     from stock.ods_dc_stock_quotes_di
+    #     where td >= '2022-12-01'
+    #     """)
+
 
     # spark_df.groupby('stock_code').agg(ta_rsi('close_price',6).alias("ta_rsi_6d")).show(10000)
     # spark_df = spark_df.withColumn('f_sum', lead('close_price').over(Window.partitionBy('stock_code').orderBy(col('trade_date').desc())))
     # spark_df = spark_df.withColumn('ta_rsi_6d', ta_rsi('close_price',6).over(Window.partitionBy('stock_code').orderBy(col('trade_date').asc())))
     # spark_df = spark_df.withColumn('mt_rsi_6d', mt_rsi('close_price',6).over(Window.partitionBy('stock_code').orderBy(col('trade_date').asc())))
-    spark_df.show(20)
+    # spark_df.show(20)
 
 
 

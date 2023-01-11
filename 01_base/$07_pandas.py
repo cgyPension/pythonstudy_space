@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 import akshare as ak
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import statsmodels.api as sm
 warnings.filterwarnings("ignore")
 # 输出显示设置
 pd.options.display.max_rows=None
@@ -242,6 +242,13 @@ def test_median():
     df = pd.DataFrame(data)
     print(df)
     print(df.median())
+
+def test_clip():
+    '''将上下边界外的值设置成阈值'''
+    data = {'col_0': [9, -3, 0, -1, 5], 'col_1': [-2, -7, 6, 8, -5]}
+    df = pd.DataFrame(data)
+    print(df)
+    print(df.clip(-4, 6))
 
 def test_rank():
     '''rank函数中的参数method有四个取值：无参,"min","max","first
@@ -498,6 +505,7 @@ def test_score():
     df['x2_max-min'] = (df['x2'] - df['x2'].min()) / (df['x2'].max() - df['x2'].min())
     df['x1_z-score'] = (df['x1'] - df['x1'].mean()) / df['x1'].std()
     df['x2_z-score'] = (df['x2'] - df['x2'].mean()) / df['x2'].std()
+
     print(df)
 
 def test_get_dummies():
@@ -630,7 +638,7 @@ def test_mask():
     print(df.where(df <= 10, -1))
 
 
-def test_xxx():
+def test_cummax():
     pass
 
 def test_xxx():

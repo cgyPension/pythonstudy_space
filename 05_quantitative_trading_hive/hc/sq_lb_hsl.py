@@ -19,8 +19,8 @@ pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
 
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/rps_xsz_hsl_zg.py 20221202 20221226 2 3 7777
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/rps_xsz_hsl_zg.py 20221202 20221226 5 3 8888
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/sq_lb_hsl.py 20210101 20230103 2 3 7777
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/sq_lb_hsl.py 20210101 20230103 5 3 8888
 if __name__ == '__main__':
     if len(sys.argv) < 6:
         print("请携带所有参数")
@@ -39,19 +39,23 @@ if __name__ == '__main__':
     # 为了向后补数据有值填充
     end_date_5 = pd.to_datetime(end_date + datetime.timedelta(5)).date()
     # 导入到bt 不能有str类型的字段
+    # 排除主观因子
     sql = """
        with tmp_ads_01 as (
-       select *
-       from stock.dwd_stock_quotes_di
-       where td between '%s' and '%s'
-               and stock_name not rlike 'ST'
-               --rlike语句匹配正则表达式 like rlike会自动把null的数据去掉 要转换
-               and nvl(concept_plates,'保留null') not rlike '次新股'
-               and stock_label_names rlike '行业rps>=90'
-               -- and stock_label_names rlike '概念rps>=90'
-               and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
-               and turnover_rate between 1 and 30
-               and pe_ttm between 0 and 30
+        select *
+        from (
+               select t1.*,t2.selection_reason,
+                      if(t1.change_percent <0 and t1.volume_ratio_1d <1 and 
+                         lag(t1.change_percent,1)over(partition by t1.stock_code order by t1.trade_date)<0 and 
+                         lag(t1.volume_ratio_1d,1)over(partition by t1.stock_code order by t1.trade_date)<1,1,0) as is_flag
+               from stock.dwd_stock_quotes_di t1
+               left join stock.dwd_stock_strong_di t2
+                    on t1.trade_date = t2.trade_date
+                    and t1.stock_code = t2.stock_code
+                    and t2.td between '%s' and '%s'
+               where t1.td between '%s' and '%s'
+               )
+        where is_flag=1 and selection_reason is not null
        ),
        tmp_ads_02 as (
        --去除or 停复牌
@@ -60,18 +64,16 @@ if __name__ == '__main__':
        where suspension_time is null
              or estimated_resumption_time < date_add(trade_date,1)
        ),
-       --要剔除玩所有不要股票再排序 否则排名会变动
        tmp_ads_03 as (
-       select *,
-              dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
-              dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate,
-              dense_rank()over(partition by td order by sub_factor_score desc) as dr_sub_factor_score
-       from tmp_ads_02
+                      select *,
+                             dense_rank()over(partition by td order by volume_ratio_1d) as dr_volume_ratio_1d,
+                             dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate
+                      from tmp_ads_02
        ),
        tmp_ads_04 as (
                       select *,
-                             '行业rps+小市值+换手率+主观因子' as stock_strategy_name,
-                             dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate+dr_sub_factor_score,volume_ratio_1d) as stock_strategy_ranking
+                             '强势股+量比+换手率' as stock_strategy_name,
+                             dense_rank()over(partition by td order by dr_volume_ratio_1d+dr_turnover_rate,dr_turnover_rate) as stock_strategy_ranking
                       from tmp_ads_03
        )
             select nvl(t1.trade_date,t2.trade_date) as trade_date,
@@ -88,7 +90,7 @@ if __name__ == '__main__':
                         and t1.stock_code = t2.stock_code
                         and t2.td between '%s' and '%s'
                    order by stock_strategy_ranking
-        """ % (start_date, end_date_5, start_date, end_date_5)
+        """ % (start_date, end_date_5, start_date, end_date_5, start_date, end_date_5)
 
     # 读取数据
     spark_df = spark.sql(sql)
@@ -96,6 +98,6 @@ if __name__ == '__main__':
     # 将trade_date设置成index
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
     print('{} 获取数据 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    bt_rank.hc('行业rps+小市值+换手率+主观因子',pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
+    bt_rank.hc('强势股+量比+换手率',pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

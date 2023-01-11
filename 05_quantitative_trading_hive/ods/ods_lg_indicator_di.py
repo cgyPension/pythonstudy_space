@@ -122,7 +122,7 @@ def get_data(ak_code, ak_name,start_date):
 
 # nohup python ods_lg_indicator_di.py update 20221010 >> my.log 2>&1 &
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py all
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py update 20221226 20221226
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_lg_indicator_di.py update 20230105 20230105
 if __name__ == '__main__':
     code_list = get_code_list()
     start_date = date.today().strftime('%Y%m%d')

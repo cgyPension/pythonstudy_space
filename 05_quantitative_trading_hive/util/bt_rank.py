@@ -71,8 +71,9 @@ class stockStrategy(bt.Strategy):
             #没有持仓，则可以在下一交易日开盘价买 不要在股票数据最后周期进行买入
             if self.getposition(data).size == 0 and data.stock_strategy_ranking[0] <= self.hold_n and data.datetime.date()<=self.end_date-datetime.timedelta(self.hold_day+1):
                     # 6分1仓位
-                    # money = self.broker.get_cash() / self.hold_n*2 - hold_now
-                    money = self.broker.getvalue() / (self.hold_n * (self.hold_day + 1))
+                    # print('hold_now：', data.datetime.date(), data._name, hold_now)
+                    money = self.broker.get_cash() / (self.hold_n * (self.hold_day + 1) - hold_now)
+                    # money = self.broker.getvalue() / (self.hold_n * (self.hold_day + 1))
                     # 如果可用现金小于成本则跳过这个循环 money用下一日开盘价作为计算
                     size = int(money / data.open[1] / 100) * 100
                     self.order = self.buy(data=data, size=size, exectype=bt.Order.Market)

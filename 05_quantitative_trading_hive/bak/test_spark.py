@@ -84,8 +84,9 @@ if __name__ == '__main__':
     # hive_sql="""alter table stock.ods_dc_stock_quotes_di drop if exists partition (td >= '2022-11-07',td <='2022-11-11')"""
     # engine.execute(hive_sql)
 
-    registerUDF(spark)
-    spark.sql("""select * from test.student""").show()
+    # registerUDF(spark)
+    # spark.sql("""select * from test.student""").show()
+    spark.sql("""SELECT percentile(number,0.5) from test.temp_median""").show()
     # spark.sql("""
     #     select trade_date,
     #        stock_code,

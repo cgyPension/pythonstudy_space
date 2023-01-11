@@ -19,8 +19,8 @@ pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
 
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/zt_2lbl_lb_hsl.py 20210101 20221229 2 3 7777
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/zt_2lbl_lb_hsl.py 20210101 20221229 5 3 8888
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/2ljqs_lb5_zg.py 20210101 20230105 2 3 7777
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/hc/2ljqs_lb5_zg.py 20210101 20230105 5 3 8888
 if __name__ == '__main__':
     if len(sys.argv) < 6:
         print("请携带所有参数")
@@ -41,35 +41,37 @@ if __name__ == '__main__':
     # 导入到bt 不能有str类型的字段
     # 排除主观因子
     sql = """
-       with tmp_ads_01 as (
-       select t2.*
-       from stock.dwd_stock_zt_di t1
-       left join stock.dwd_stock_quotes_di t2
-            on t1.trade_date = t2.trade_date
-            and t1.stock_code = t2.stock_code
-            and t2.td between '%s' and '%s'
-       where t1.td between '%s' and '%s'
-               and t1.lx_sealing_nums = '2'
-       ),
-       tmp_ads_02 as (
-       --去除or 停复牌
-       select *
-       from tmp_ads_01
-       where suspension_time is null
-             or estimated_resumption_time < date_add(trade_date,1)
-       ),
-       tmp_ads_03 as (
-                      select *,
-                             dense_rank()over(partition by td order by volume_ratio_1d) as dr_volume_ratio_1d,
-                             dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate
-                      from tmp_ads_02
-       ),
-       tmp_ads_04 as (
-                      select *,
-                             '涨停+2连板+量比+换手率' as stock_strategy_name,
-                             dense_rank()over(partition by td order by dr_volume_ratio_1d+dr_turnover_rate,dr_turnover_rate) as stock_strategy_ranking
-                      from tmp_ads_03
-       )
+            with tmp_ads_01 as (
+            select * from (
+                           select *,
+                                  if(lag(stock_label_names,2)over(partition by stock_code order by trade_date) rlike '连续2天量升价跌-',1,0) as flag
+                            from stock.dwd_stock_quotes_di
+                            where td between '%s' and '%s'
+                                    and stock_name not rlike 'ST'
+                                    and nvl(concept_plates,'保留null') not rlike '次新股'
+                           )
+            where flag = 1 and stock_label_names rlike '连续2天量价齐升'
+            ),
+            tmp_ads_02 as (
+            --去除or 停复牌
+            select *
+            from tmp_ads_01
+            where suspension_time is null
+                  or estimated_resumption_time < date_add(trade_date,1)
+            ),
+            --要剔除玩所有不要股票再排序 否则排名会变动
+            tmp_ads_03 as (
+            select *,
+                   dense_rank()over(partition by td order by volume_ratio_5d desc) as dr_volume_ratio_5d,
+                   dense_rank()over(partition by td order by sub_factor_score desc) as dr_sub_factor_score
+            from tmp_ads_02
+            ),
+            tmp_ads_04 as (
+                           select *,
+                                  '连续2天量升价跌-+连续2天量价齐升+量比5+主观' as stock_strategy_name,
+                                  dense_rank()over(partition by td order by volume_ratio_5d+dr_sub_factor_score,turnover_rate) as stock_strategy_ranking
+                           from tmp_ads_03
+            )
             select nvl(t1.trade_date,t2.trade_date) as trade_date,
                    nvl(t1.stock_code||'_'||t1.stock_name,t2.stock_code||'_'||t2.stock_name) as stock_code,
                    nvl(t1.open_price,t2.open_price) as open,
@@ -92,6 +94,6 @@ if __name__ == '__main__':
     # 将trade_date设置成index
     pd_df = pd_df.set_index(pd.to_datetime(pd_df['trade_date'])).sort_index()
     print('{} 获取数据 运行完毕!!!'.format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-    bt_rank.hc('涨停+2连板+量比+换手率',pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
+    bt_rank.hc('连续2天量升价跌-+连续2天量价齐升+量比5+主观',pd_df, start_date, end_date, end_date_5, hold_day, hold_n, port=port)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))
