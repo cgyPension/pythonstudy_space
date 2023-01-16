@@ -59,10 +59,12 @@ if __name__ == '__main__':
        ),
        tmp_ads_02 as (
        --去除or 停复牌
-       select *
-       from tmp_ads_01
-       where suspension_time is null
-             or estimated_resumption_time < date_add(trade_date,1)
+       select a.*
+       from tmp_ads_01 a
+       left join (select trade_date,lead(trade_date,1)over(order by trade_date) as next_trade_date from stock.ods_trade_date_hist_sina_df) b
+            on a.trade_date = b.trade_date
+       where a.suspension_time is null
+             or a.estimated_resumption_time < b.next_trade_date
        ),
        tmp_ads_03 as (
                       select *,

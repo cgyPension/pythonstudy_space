@@ -334,3 +334,25 @@ create table if not exists ods_stock_hot_rank_wc_di
     tblproperties ('orc.compress' = 'snappy');
 
 --股票指数
+drop table if exists ods_dc_index_di;
+create table if not exists ods_dc_index_di
+(
+    trade_date     date comment '交易日期',
+    index_code     string comment '指数代码',
+    index_name     string comment '指数名称',
+    open_price     decimal(20, 4) comment '开盘价',
+    close_price    decimal(20, 4) comment '收盘价',
+    high_price     decimal(20, 4) comment '最高价',
+    low_price      decimal(20, 4) comment '最低价',
+    volume         bigint comment '成交量',
+    turnover       decimal(20, 4) comment '成交额',
+    amplitude      decimal(20, 4) comment '振幅',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    change_amount  decimal(20, 4) comment '涨跌额',
+    turnover_rate  decimal(20, 4) comment '换手率',
+    update_time    timestamp comment '更新时间'
+) comment '东方财富网-中国股票指数-行情数据'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');

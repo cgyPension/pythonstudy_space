@@ -26,11 +26,9 @@ class sqlalchemyUtil(object):
         链接数据库
         '''
         print('连接主机',self.engine.dialect)
-
     def closeEngine(self):
         self.conn.close()
         self.engine.dispose()
-
 
 
 class pymysqlUtil(object):

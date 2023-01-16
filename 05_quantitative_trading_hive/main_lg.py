@@ -1,22 +1,24 @@
-#-*- coding:utf-8 -*-
 import os
 import sys
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
 import time
 from datetime import date
 # 在linux会识别不了包 所以要加临时搜索目录
-from ads import ads_stock_suggest_di, AdsSendMail, AdstoCSV, ads_strategy_yield_di
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+from ads import ads_stock_suggest_di, ads_strategy_yield_di
 from dim import dim_dc_stock_plate_di
 from dwd import dwd_stock_quotes_di, dwd_stock_zt_di, dwd_stock_strong_di
 from ods import ods_dc_stock_quotes_di, ods_dc_stock_tfp_di, ods_lg_indicator_di, \
     ods_dc_stock_concept_plate_rt_di, ods_dc_stock_industry_plate_rt_di, ods_dc_stock_industry_plate_cons_di, \
     ods_dc_stock_concept_plate_cons_di, ods_stock_lrb_em_di, ods_financial_analysis_indicator_di, \
     ods_stock_lhb_detail_em_di, ods_dc_stock_industry_plate_hist_di, ods_dc_stock_concept_plate_hist_di, \
-    ods_trade_date_hist_sina_df, ods_stock_zt_pool_di, ods_stock_strong_pool_di, ods_stock_hot_rank_wc_di
+    ods_trade_date_hist_sina_df, ods_stock_zt_pool_di, ods_stock_strong_pool_di, ods_stock_hot_rank_wc_di, \
+    ods_dc_index_di
 from util.CommonUtils import get_code_list, get_process_num
 from util.DBUtils import sqlalchemyUtil, hiveUtil
+from factor import stock_technical_indicators_df
+from util.stockImportExportUtils import export_stock_ndzt_hive, export_stock_zt_hive
 
 
 def task_update_daily():
@@ -68,6 +70,7 @@ def task_update_daily():
     # ods_stock_zt_pool_di.get_data(start_date, end_date)
     # ods_stock_strong_pool_di.get_data(start_date, end_date)
     # ods_stock_hot_rank_wc_di.get_data(start_date, end_date)
+    # ods_dc_index_di.get_data(start_date, end_date)
 
     # 板块
     # ods_dc_stock_industry_plate_cons_di.multiprocess_run(start_date, process_num)
@@ -78,16 +81,18 @@ def task_update_daily():
     # ods_dc_stock_concept_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
     # dim_dc_stock_plate_di.get_data(start_date, end_date)
 
+    # stock_technical_indicators_df.get_data()
+
     # 这个dwd有先后顺序
     dwd_stock_quotes_di.get_data(start_date, end_date)
     dwd_stock_zt_di.get_data(start_date, end_date)
     dwd_stock_strong_di.get_data(start_date, end_date)
 
     ads_stock_suggest_di.get_data(start_date, end_date)
-    ads_strategy_yield_di.get_data()
-    # AdstoCSV.get_data(start_date,'小市值+市盈率TTM+换手率')
-    # AdstoCSV.get_data(start_date,'小市值+PEG+换手率')
-    # AdstoCSV.get_data(start_date,'行业rps+小市值+换手率')
+    # ads_strategy_yield_di.get_data()
+    export_stock_zt_hive(start_date)
+    nd_codes = ['002689', '002094', '002651', '002264', '002808', '002888', '003040', '002762', '002238', '002766', '003028']
+    export_stock_ndzt_hive(start_date,nd_codes)
     # AdsSendMail.get_data()
 
     # 程序结束运行时间
@@ -101,8 +106,11 @@ def task_update_daily():
 # 时间： 周一到周五每天早上9点25, 执行run_today
 # sched.add_job(task_update_daily, 'cron', day_of_week='mon-fri', hour=9, minute=25)
 # sched.start()
-
+#
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main_lg.py update
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main_lg.py update 20230104 20230104
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main_lg.py update 20210101 20221230
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/main_lg.py update 20221230 20221230
+# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/main_lg.py all
+# nohup /opt/code/05_quantitative_trading_hive/main_lg.py update 20221010 20221010 >> my.log 2>&1 &
 if __name__ == '__main__':
     task_update_daily()

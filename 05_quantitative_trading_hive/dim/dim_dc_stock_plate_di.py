@@ -28,7 +28,7 @@ def get_data(start_date, end_date):
         start_date = pd.to_datetime(start_date).date()
         end_date = pd.to_datetime(end_date).date()
 
-        # 增量 因为rps_60d 要提前60个交易日
+        # 增量 因为rps_50d 要提前50个交易日
         s_date = '20210101'
         td_df = ak.tool_trade_date_hist_sina()
         daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
@@ -53,7 +53,7 @@ with t1 as (select trade_date,
        if(lag(close_price,4)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,4)over(partition by industry_plate order by trade_date)-1)*100) as rps_5d,
        if(lag(close_price,9)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,9)over(partition by industry_plate order by trade_date)-1)*100) as rps_10d,
        if(lag(close_price,19)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,19)over(partition by industry_plate order by trade_date)-1)*100) as rps_20d,
-       if(lag(close_price,59)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,59)over(partition by industry_plate order by trade_date)-1)*100) as rps_60d
+       if(lag(close_price,49)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,49)over(partition by industry_plate order by trade_date)-1)*100) as rps_50d
 from stock.ods_dc_stock_industry_plate_hist_di
 where td between '%s' and '%s'),
 t2 as (select trade_date,
@@ -63,7 +63,7 @@ t2 as (select trade_date,
       percent_rank()over(partition by trade_date order by rps_5d asc)*100 as rps_5d,
       percent_rank()over(partition by trade_date order by rps_10d asc)*100 as rps_10d,
       percent_rank()over(partition by trade_date order by rps_20d asc)*100 as rps_20d,
-      percent_rank()over(partition by trade_date order by rps_60d asc)*100 as rps_60d
+      percent_rank()over(partition by trade_date order by rps_50d asc)*100 as rps_50d
 from t1)
 select * from t2
                """ % (start_date_65, end_date)
@@ -77,7 +77,7 @@ with tmp_t1 as (select trade_date,
        if(lag(close_price,4)over(partition by concept_plate order by trade_date) is null,null,(close_price/lag(close_price,4)over(partition by concept_plate order by trade_date)-1)*100) as rps_5d,
        if(lag(close_price,9)over(partition by concept_plate order by trade_date) is null,null,(close_price/lag(close_price,9)over(partition by concept_plate order by trade_date)-1)*100) as rps_10d,
        if(lag(close_price,19)over(partition by concept_plate order by trade_date) is null,null,(close_price/lag(close_price,19)over(partition by concept_plate order by trade_date)-1)*100) as rps_20d,
-       if(lag(close_price,59)over(partition by concept_plate order by trade_date) is null,null,(close_price/lag(close_price,59)over(partition by concept_plate order by trade_date)-1)*100) as rps_60d
+       if(lag(close_price,49)over(partition by concept_plate order by trade_date) is null,null,(close_price/lag(close_price,49)over(partition by concept_plate order by trade_date)-1)*100) as rps_50d
 from stock.ods_dc_stock_concept_plate_hist_di
 where td between '%s' and '%s'),
 tmp_t2 as (select trade_date,
@@ -86,13 +86,16 @@ tmp_t2 as (select trade_date,
       percent_rank()over(partition by trade_date order by rps_5d asc)*100 as rps_5d,
       percent_rank()over(partition by trade_date order by rps_10d asc)*100 as rps_10d,
       percent_rank()over(partition by trade_date order by rps_20d asc)*100 as rps_20d,
-      percent_rank()over(partition by trade_date order by rps_60d asc)*100 as rps_60d
+      percent_rank()over(partition by trade_date order by rps_50d asc)*100 as rps_50d
 from tmp_t1)
 select t1.trade_date,
        t1.stock_code,
        t1.stock_name,
        concat_ws(',',collect_list(t1.concept_plate)) as concept_plates,
-       max(if(tmp_t2.rps_10d >=90 and tmp_t2.rps_20d >=90 and tmp_t2.rps_60d >=90,1,0)) as is_concept_rps
+       max(if((tmp_t2.rps_5d >=87 and tmp_t2.rps_10d >=87 and tmp_t2.rps_20d >=87) or
+              (tmp_t2.rps_5d >=87 and tmp_t2.rps_10d >=87 and tmp_t2.rps_50d >=87) or
+              (tmp_t2.rps_5d >=87 and tmp_t2.rps_20d >=87 and tmp_t2.rps_50d >=87) or
+              (tmp_t2.rps_10d >=87 and tmp_t2.rps_20d >=87 and tmp_t2.rps_50d >=87),1,0)) as is_concept_rps
 from stock.ods_dc_stock_concept_plate_cons_di t1
 left join tmp_t2
     on t1.trade_date =tmp_t2.trade_date
@@ -112,7 +115,7 @@ group by t1.trade_date,t1.stock_code,t1.stock_name
                                tmp_dim_industry_rps.rps_5d,
                                tmp_dim_industry_rps.rps_10d,
                                tmp_dim_industry_rps.rps_20d,
-                               tmp_dim_industry_rps.rps_60d
+                               tmp_dim_industry_rps.rps_50d
                         from stock.ods_dc_stock_industry_plate_cons_di t1
                         left join tmp_dim_industry_rps
                             on t1.trade_date = tmp_dim_industry_rps.trade_date
@@ -128,7 +131,7 @@ group by t1.trade_date,t1.stock_code,t1.stock_name
                      t1.rps_5d,
                      t1.rps_10d,
                      t1.rps_20d,
-                     t1.rps_60d,
+                     t1.rps_50d,
                      t2.is_concept_rps,
                      current_timestamp() as update_time,
                      nvl(t1.trade_date,t2.trade_date) as td

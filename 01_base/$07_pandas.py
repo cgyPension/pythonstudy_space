@@ -18,6 +18,24 @@ pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
 
+def test_base():
+    '''
+
+    '''
+    df = pd.DataFrame({"A": [5, 3, 3, None],
+                       "B": [11, 2, 4, 3],
+                       "C": [4, 3, 8, 5],
+                       "D": [5, 4, 2, 8]})
+
+    # 查看数据的行数与列书， 一般来说行代表样本数， 列代表feature数
+    print(df.shape())
+    # 查看数据的前5行
+    print(df.head())
+    # 查看每一列的计数及数据类型等信息
+    print(df.info())
+    # 查看统计信息
+    print(df.describe())
+
 # todo ====================================================================  apply  ==================================================================
 def test_apply():
     """
@@ -454,7 +472,7 @@ def test_pct_change():
     s.pct_change(periods=2)  # 表示当前元素与先前两个元素百分比
     # （85-90）/90=-0.055556
 
-def test_sort_values():
+def test_sortsort_values():
     '''按任一轴上的值排序
     by -- 指定列名（axis=0或者'index'）或索引值（axis=1或者'columns'）
     axis -- 按行、按列，默认axis=0按指定列排序
@@ -572,6 +590,8 @@ def test_corr():
     spearman：非线性的，非正太分析的数据的相关系数
     min_periods：样本最少的数据量
     返回值：各类型之间的相关系数DataFrame表格。
+
+    输入的值最好转成float 不然有些识别不了
     '''
     df = pd.DataFrame([[1, 6, 7, 5, 1], [2, 10, 8, 3, 4], [3, 4, 0, 10, 2]],columns=['val1', 'val2', 'val3', 'val4', 'val5'])
     print(df)
@@ -649,5 +669,12 @@ def test_xxx():
 
 def test_xxx():
     pass
+
+def test_xxx():
+    pass
+
+def test_xxx():
+    pass
+
 if __name__ == '__main__':
-    test_score()
+    test_pct_change()

@@ -35,44 +35,41 @@ def get_data(start_date, end_date):
        # 增量 覆盖
        # end_date_year_start = date(pd.to_datetime(start_date).year, 1, 1) # 获取日期年的一月一日
        end_date_year_start = pd.to_datetime('20210101').date()
-       last_date = pd.date_range(end_date_year_start, pd.to_datetime(end_date).date(), freq='Q-Mar')
-       df = pd.DataFrame()
-       df['time'] = last_date
-       # 上一期的日期
-       single_date = df.iat[df.idxmax()[0], 0]
+       announcement_date = pd.date_range(end_date_year_start, pd.to_datetime(end_date).date(), freq='Q-Mar')
+       announcement_date_df = pd.DataFrame(announcement_date)
+       # 上一期的日期 上上一期的日期
+       single_date, lag_single_date = announcement_date_df.iloc[-1, 0], announcement_date_df.iloc[-2, 0]
        try:
            # 东方财富-数据中心-年报季报-业绩快报-利润表
+           # http://data.eastmoney.com/bbsj/202003/lrb.html
            df = ak.stock_lrb_em(date=single_date.strftime("%Y%m%d"))
-           # print('ods_stock_lrb_em_di：正在处理{}...'.format(start_date))
-           # 去重、保留最后一次出现的
-           df.drop_duplicates(subset=['股票代码'], keep='last', inplace=True)
-           df['stock_code'] = df['股票代码'].apply(str_pre)
-           df['announcement_date'] = pd.to_datetime(df['公告日期'])
-           df['td'] = df['announcement_date']
-           df['update_time'] = datetime.now()
-
-           df.rename(columns={'股票简称': 'stock_name', '净利润': 'net_profit',
-                              '净利润同比': 'net_profit_yr', '营业总收入': 'total_business_income',
-                              '营业总收入同比': 'total_business_income_yr', '营业总支出-营业支出': 'business_fee',
-                              '营业总支出-销售费用': 'sales_fee', '营业总支出-管理费用': 'management_fee', '营业总支出-财务费用': 'finance_fee',
-                              '营业总支出-营业总支出': 'total_business_fee', '营业利润': 'business_profit', '利润总额': 'total_profit'},
-                     inplace=True)
-           df = df[['announcement_date', 'stock_code', 'stock_name', 'net_profit', 'net_profit_yr', 'total_business_income',
-                'total_business_income_yr', 'business_fee', 'sales_fee', 'management_fee', 'finance_fee',
-                'total_business_fee', 'business_profit', 'total_profit','update_time','td']]
-           # MySQL无法处理nan
-           df = df.replace({np.nan: None})
-           pd_df = pd_df.append(df)
-
        except Exception as e:
-           print(e)
+           print(e, '本期内容为空，取上一期')
+           df = ak.stock_lrb_em(date=lag_single_date.strftime("%Y%m%d"))
+
+       # 去重、保留最后一次出现的
+       df.drop_duplicates(subset=['股票代码'], keep='last', inplace=True)
+       df['stock_code'] = df['股票代码'].apply(str_pre)
+       df['announcement_date'] = pd.to_datetime(df['公告日期'])
+       df['td'] = df['announcement_date']
+       df['update_time'] = datetime.now()
+
+       df.rename(columns={'股票简称': 'stock_name', '净利润': 'net_profit',
+                          '净利润同比': 'net_profit_yr', '营业总收入': 'total_business_income',
+                          '营业总收入同比': 'total_business_income_yr', '营业总支出-营业支出': 'business_fee',
+                          '营业总支出-销售费用': 'sales_fee', '营业总支出-管理费用': 'management_fee', '营业总支出-财务费用': 'finance_fee',
+                          '营业总支出-营业总支出': 'total_business_fee', '营业利润': 'business_profit', '利润总额': 'total_profit'},
+                 inplace=True)
+       df = df[['announcement_date', 'stock_code', 'stock_name', 'net_profit', 'net_profit_yr', 'total_business_income',
+                'total_business_income_yr', 'business_fee', 'sales_fee', 'management_fee', 'finance_fee',
+                'total_business_fee', 'business_profit', 'total_profit', 'update_time', 'td']]
+       # MySQL无法处理nan
+       df = df.replace({np.nan: None})
+       pd_df = pd_df.append(df)
    else:
         for single_date in daterange:
              try:
-                 # 东方财富-数据中心-年报季报-业绩快报-利润表
                  df = ak.stock_lrb_em(date=single_date.strftime("%Y%m%d"))
-                 # print('ods_stock_lrb_em_di：正在处理{}...'.format(start_date))
-                 # 去重、保留最后一次出现的
                  df.drop_duplicates(subset=['股票代码'], keep='last', inplace=True)
                  df['stock_code'] = df['股票代码'].apply(str_pre)
                  df['announcement_date'] = pd.to_datetime(df['公告日期'])

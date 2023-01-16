@@ -32,6 +32,7 @@ insert into dim_stock_label VALUES
        ('预盈预增','概率板标签',1,null,current_timestamp()),
        ('预亏预减-','概率板标签',1,null,current_timestamp()),
 
+       ('个股rps>=87','行业板块三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
        ('行业rps>=87','行业板块三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
        ('概念rps>=87','概念板块三线欧奈尔rps>=87',1,null,current_timestamp()),
        ('个股rps>=87','个股三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
@@ -108,7 +109,7 @@ create table if not exists dim_dc_stock_plate_di
     rps_5d    decimal(20, 15) comment '欧奈尔rps_5d',
     rps_10d    decimal(20, 15) comment '欧奈尔rps_10d',
     rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
-    rps_60d    decimal(20, 15) comment '欧奈尔rps_60d',
+    rps_50d    decimal(20, 15) comment '欧奈尔rps_50d',
     is_concept_rps int comment '是否概念三线欧奈尔rps>=90',
     update_time    timestamp comment '更新时间'
 ) comment ' 东方财富-板块维表'

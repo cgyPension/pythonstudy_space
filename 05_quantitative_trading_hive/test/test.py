@@ -4,6 +4,9 @@ import os
 import sys
 import time
 import random
+import statsmodels.api as sm
+from util.algorithmUtils import rps
+
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
@@ -36,30 +39,6 @@ plt.rcParams['font.sans-serif']=['FangSong']   #中文仿宋
 plt.rcParams['font.sans-serif']=['SimHei']     #用来正常显示中文标签
 plt.rcParams['axes.unicode_minus']=False       #用来正常显示负号
 
-def get_data():
-    start_date = '20230103'
-    end_date = '20230103'
-    # start_date = '20221203'
-    # end_date = '20221203'
-    daterange = pd.date_range(pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date(), freq='Q-Mar')
-    print(daterange)
-    pd_df = pd.DataFrame()
-    if daterange.empty:
-        # 增量 覆盖
-        end_date_year_start = pd.to_datetime('20210101').date()
-        last_date = pd.date_range(end_date_year_start, pd.to_datetime(end_date).date(), freq='Q-Mar')
-        print(last_date)
-        if last_date.empty:
-            print('kkkkkkk')
-            return
-        df = pd.DataFrame()
-        df['time'] = last_date
-        # 上一期的日期
-        single_date = df.iat[df.idxmax()[0], 0]
-        print(single_date)
-    else:
-        print('else')
-    print('main')
 
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/test/test.py
 if __name__ == '__main__':
@@ -98,22 +77,25 @@ if __name__ == '__main__':
     # 字段是 date open close high low volume
 
 
-    # df = pd.DataFrame({"A": [5, 3, 3, 4],
-    #                    "B": [11, 2, 4, 3],
-    #                    "C": [4, 3, 8, 5],
-    #                    "D": [5, 4, 2, 8]})
+    df = pd.DataFrame({"A": ['a', 'b', 'b', 'd'],
+                       "B": [11, 2, 4, 3],
+                       "C": [4, 3, 8, 5],
+                       "D": [5, 4, 2, 8]})
+    print(df)
+    # df['OLS'] = df.groupby('B', group_keys=False).apply(lambda x: x['A']-x['C'])
+    # df['OLS'] = df.groupby('B', group_keys=False).apply(lambda x: sm.OLS(x['A'].astype(float),x.iloc[:, 6:], hasconst=False, missing='drop').fit().resid)
+    df['OLS'] = df.groupby('A', group_keys=False).apply(lambda x: sm.OLS(x['B'].astype(float),x.iloc[:, 2:], hasconst=False, missing='drop').fit().resid)
+    # df['OLS'] = df.groupby('A', group_keys=False).apply(lambda x: print(x['A'],x.iloc[:, 2:]))
+    # df['OLS'] = df.iloc[:, 2:].sum()
+
+    # print(df)
     # print(type(df.values.tolist()))
     # df2 = pd.DataFrame({"A": [pd.to_datetime('20221101').date(), pd.to_datetime('20221201').date(), pd.to_datetime('20220104').date(), pd.to_datetime('20221020').date()]})
     # df['r'] = df.A.shift(1)
     # df = ak.stock_a_lg_indicator(symbol='000609')
     # print(df)
 
-    # stock_board_concept_hist_em(symbol=concept_plate, start_date=start_date, end_date=end_date, period='daily',adjust='')
-    # stock_board_concept_hist_em_df1 = ak.stock_board_concept_hist_em(symbol="熊去氧胆酸", start_date="20221216",end_date="20221216", period="daily", adjust="")
-    # stock_board_concept_hist_em_df2 = ak.stock_board_concept_hist_em(symbol="熊去氧胆酸", start_date="20221216",end_date="20221216", period='daily', adjust="qfq")
-    # stock_board_concept_hist_em_df3 = ak.stock_board_concept_hist_em(symbol="熊去氧胆酸", start_date="20221216",end_date="20221216", period='daily',adjust="hfq")
-    # print('111',stock_board_concept_hist_em_df1)
-    # print('222',stock_board_concept_hist_em_df2)
+
     # print('333',stock_board_concept_hist_em_df3)
 
     # lst99 = [['001', [1,11]],['002', [2,22]],['003', [3,33]]]
@@ -134,35 +116,7 @@ if __name__ == '__main__':
     # stock_hot_follow_xq_df = ak.stock_hot_follow_xq(symbol="最热门")
     # print(stock_hot_follow_xq_df)
 
-    # get_data()
     # df = ak.stock_lrb_em(date='20221231')
     # df = ak.stock_board_concept_name_em()
     # print(df)
-    import numpy as np
-    import statsmodels.api as sm
-    import matplotlib.pyplot as plt
-
-    # 构造函数
-    number = 50
-    group = np.zeros(number, int)
-    print(group)
-    group[20:40] = 1
-    group[40:] = 2
-    print(group)
-    category = sm.categorical(group, drop=True)  # 构造分类变量
-    print(category)
-    x = np.linspace(0, 10, number)
-    X = np.column_stack((x, category))
-    X = sm.add_constant(X)
-    bata = np.array([2, 3, 4, 5, 6])
-    e = np.random.normal(size=number)
-    y = np.dot(X, bata) + e
-
-    # 建立方程
-    model = sm.OLS(y, X).fit()
-    # print(model.summary())
-        #
-        # # 东方财富-数据中心-年报季报-业绩快报-利润表
-        # df = ak.stock_lrb_em(date=single_date.strftime("%Y%m%d"))
-        # print(df)
 

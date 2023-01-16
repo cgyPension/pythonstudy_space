@@ -1,14 +1,16 @@
 import os
 import sys
 from datetime import date
-
+import time
+# 在linux会识别不了包 所以要加临时搜索目录
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
 import pandas as pd
 import warnings
 import akshare as ak
 import multiprocessing
-
 from pyspark.sql import SparkSession
-
 warnings.filterwarnings("ignore")
 # 输出显示设置
 pd.options.display.max_rows=None
@@ -16,12 +18,6 @@ pd.options.display.max_columns=None
 pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide',True)
 pd.set_option('display.unicode.east_asian_width',True)
-
-# 在linux会识别不了包 所以要加临时搜索目录
-curPath = os.path.abspath(os.path.dirname(__file__))
-rootPath = os.path.split(curPath)[0]
-sys.path.append(rootPath)
-
 
 def get_spark(appName):
     # 也可以在 spark-defaults.conf 全局配置 使用Arrow pd_df spark_df提高转换速度
@@ -48,7 +44,6 @@ def get_spark(appName):
         .enableHiveSupport().getOrCreate()
     return spark
 
-
 def get_trade_date():
     """获得交易日"""
     current_dt = date.today()
@@ -60,18 +55,14 @@ def get_trade_date():
 def get_process_num():
     """
     获取建议进程数目
-
     对于I/O密集型任务，建议进程数目为CPU核数/(1-a)，a去0.8~0.9
-
     :return: 进程数目
     """
-
     # return min(60, int(os.cpu_count() / (1 - 0.9)))
     # akshare接口 不用time.sleep(1) 最大为6 获取请求就不会报错
     return min(6, int(os.cpu_count() / (1 - 0.9)))
     # akshare接口 用time.sleep(1) 最大为30 获取请求就不会报错
     # return min(30, int(os.cpu_count() / (1 - 0.9)))
-
 
 def str_pre(s):
     '''
@@ -100,7 +91,6 @@ def get_code_list():
 def get_code_group(process_num, code_list):
     """
     获取代码分组，用于多进程计算，每个进程处理一组股票
-
     :param process_num: 进程数 多数调用均使用默认值为61
     :param stock_codes: 待处理的股票代码
     :return: 分组后的股票代码列表，列表的每个元素为一组股票代码的列表
@@ -120,42 +110,34 @@ def get_code_group(process_num, code_list):
 def get_industry_plate_group(process_num):
     """
     获取代码分组，用于多进程计算，每个进程处理一组股票
-
     :param process_num: 进程数 多数调用均使用默认值为61
     :param stock_codes: 待处理的股票代码
     :return: 分组后的股票代码列表，列表的每个元素为一组股票代码的列表
     """
     stock_board_industry_name_em_df = ak.stock_board_industry_name_em()
     industry_plates = stock_board_industry_name_em_df['板块名称']
-
     code_group = [[] for i in range(process_num)]
 
     # 按余数为每个分组分配股票
     for index, industry_plate in enumerate(industry_plates):
         # code_group[index % process_num].append([stock_code])
         code_group[index % process_num].append(industry_plate)
-
     return code_group
 
 def get_concept_plate_group(process_num):
     """
     获取代码分组，用于多进程计算，每个进程处理一组股票
-
     :param process_num: 进程数 多数调用均使用默认值为61
     :param stock_codes: 待处理的股票代码
     :return: 分组后的股票代码列表，列表的每个元素为一组股票代码的列表
     """
     stock_board_concept_name_em_df = ak.stock_board_concept_name_em()
     concept_plates = stock_board_concept_name_em_df['板块名称']
-
     code_group = [[] for i in range(process_num)]
-
     # 按余数为每个分组分配股票
     for index, concept_plate in enumerate(concept_plates):
         code_group[index % process_num].append(concept_plate)
-
     return code_group
-
 
 def multiprocessing_func(func, args):
     """
@@ -175,7 +157,11 @@ def multiprocessing_func(func, args):
         pool.close()
         # 等待所有进程结束
         pool.join()
-
     return results
 
 
+if __name__ == '__main__':
+    start_time = time.time()
+
+    end_time = time.time()
+    print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

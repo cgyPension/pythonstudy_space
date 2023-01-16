@@ -61,12 +61,12 @@ def get_data(start_date, end_date):
        ),
        tmp_ads_02 as (
        --去除or 停复牌
-       select *
-       from tmp_ads_01
-       where suspension_time is null
-       --      and pe_ttm is null
-       --      or pe_ttm <=30
-             or estimated_resumption_time < date_add(trade_date,1)
+       select a.*
+       from tmp_ads_01 a
+       left join (select trade_date,lead(trade_date,1)over(order by trade_date) as next_trade_date from stock.ods_trade_date_hist_sina_df) b
+            on a.trade_date = b.trade_date
+       where a.suspension_time is null
+             or a.estimated_resumption_time < b.next_trade_date
        ),
        --要剔除玩所有不要股票再排序 否则排名会变动
        tmp_ads_03 as (
@@ -107,6 +107,34 @@ def get_data(start_date, end_date):
               z_total_market_value,
               industry_plate,
               concept_plates,
+              rps_5d,
+              rps_10d,
+              rps_20d,
+              rps_50d,
+              rs,
+              rsi_6d,
+              rsi_12d,
+              ma_5d,
+              ma_10d,
+              ma_20d,
+              ma_50d,
+              high_price_250d,
+              low_price_250d,
+              stock_label_names,
+              stock_label_num,
+              sub_factor_names,
+              sub_factor_score,
+              stock_strategy_name,
+              stock_strategy_ranking,
+              holding_yield_2d,
+              holding_yield_5d,
+              hot_rank,
+              interprets,
+              reason_for_lhbs,
+              lhb_num_5d,
+              lhb_num_10d,
+              lhb_num_30d,
+              lhb_num_60d,
               pe,
               pe_ttm,
               pb,
@@ -129,26 +157,6 @@ def get_data(start_date, end_date):
               return_on_equity,
               npadnrgal,
               net_profit_growth_rate,
-              interprets,
-              reason_for_lhbs,
-              lhb_num_5d,
-              lhb_num_10d,
-              lhb_num_30d,
-              lhb_num_60d,
-              hot_rank,
-              ma_5d,
-              ma_10d,
-              ma_20d,
-              ma_30d,
-              ma_60d,
-              stock_label_names,
-              stock_label_num,
-              sub_factor_names,
-              sub_factor_score,
-              stock_strategy_name,
-              stock_strategy_ranking,
-              holding_yield_2d,
-              holding_yield_5d,
               current_timestamp() as update_time,
               trade_date as td
        from tmp_ads_04
@@ -175,10 +183,12 @@ def get_data(start_date, end_date):
        ),
        tmp_ads_02 as (
        --去除or 停复牌
-       select *
-       from tmp_ads_01
-       where suspension_time is null
-             or estimated_resumption_time < date_add(trade_date,1)
+       select a.*
+       from tmp_ads_01 a
+       left join (select trade_date,lead(trade_date,1)over(order by trade_date) as next_trade_date from stock.ods_trade_date_hist_sina_df) b
+            on a.trade_date = b.trade_date
+       where a.suspension_time is null
+             or a.estimated_resumption_time < b.next_trade_date
        ),
        --要剔除玩所有不要股票再排序 否则排名会变动
        tmp_ads_03 as (
@@ -214,6 +224,34 @@ def get_data(start_date, end_date):
               z_total_market_value,
               industry_plate,
               concept_plates,
+              rps_5d,
+              rps_10d,
+              rps_20d,
+              rps_50d,
+              rs,
+              rsi_6d,
+              rsi_12d,
+              ma_5d,
+              ma_10d,
+              ma_20d,
+              ma_50d,
+              high_price_250d,
+              low_price_250d,
+              stock_label_names,
+              stock_label_num,
+              sub_factor_names,
+              sub_factor_score,
+              stock_strategy_name,
+              stock_strategy_ranking,
+              holding_yield_2d,
+              holding_yield_5d,
+              hot_rank,
+              interprets,
+              reason_for_lhbs,
+              lhb_num_5d,
+              lhb_num_10d,
+              lhb_num_30d,
+              lhb_num_60d,
               pe,
               pe_ttm,
               pb,
@@ -236,26 +274,6 @@ def get_data(start_date, end_date):
               return_on_equity,
               npadnrgal,
               net_profit_growth_rate,
-              interprets,
-              reason_for_lhbs,
-              lhb_num_5d,
-              lhb_num_10d,
-              lhb_num_30d,
-              lhb_num_60d,
-              hot_rank,
-              ma_5d,
-              ma_10d,
-              ma_20d,
-              ma_30d,
-              ma_60d,
-              stock_label_names,
-              stock_label_num,
-              sub_factor_names,
-              sub_factor_score,
-              stock_strategy_name,
-              stock_strategy_ranking,
-              holding_yield_2d,
-              holding_yield_5d,
               current_timestamp() as update_time,
               trade_date as td
        from tmp_ads_04
@@ -264,107 +282,6 @@ def get_data(start_date, end_date):
           """ % (start_date, end_date)
    ).createOrReplaceTempView('hyrps_zxsz_hsl')
 
-   # todo ====================================================================  量价齐升+z小市值  ==================================================================
-   # spark.sql(
-   #     """
-   #     with tmp_ads_01 as (
-   #     select *
-   #     from stock.dwd_stock_quotes_di
-   #     where td between '%s' and '%s'
-   #             and stock_name not rlike 'ST'
-   #             and nvl(concept_plates,'保留null') not rlike '次新股'
-   #             and nvl(stock_label_names,'保留null') not rlike '行业板块涨跌幅前10%%-'
-   #     ),
-   #     tmp_ads_02 as (
-   #     --去除or 停复牌
-   #     select *
-   #     from tmp_ads_01
-   #     where suspension_time is null
-   #           or estimated_resumption_time < date_add(trade_date,1)
-   #     ),
-   #     --要剔除玩所有不要股票再排序 否则排名会变动
-   #     tmp_ads_03 as (
-   #     select *,
-   #            dense_rank()over(partition by td order by z_total_market_value) as dr_z_total_market_value,
-   #            dense_rank()over(partition by td order by turnover_rate) as dr_turnover_rate
-   #     from tmp_ads_02
-   #     ),
-   #     tmp_ads_04 as (
-   #                    select *,
-   #                           '连续2天量价齐升+z小市值+换手率' as stock_strategy_name,
-   #                           dense_rank()over(partition by td order by dr_z_total_market_value+dr_turnover_rate,volume_ratio_1d) as stock_strategy_ranking
-   #                    from tmp_ads_03
-   #     )
-   #     select trade_date,
-   #            stock_code,
-   #            stock_name,
-   #            open_price,
-   #            close_price,
-   #            high_price,
-   #            low_price,
-   #            volume,
-   #            volume_ratio_1d,
-   #            volume_ratio_5d,
-   #            turnover,
-   #            amplitude,
-   #            change_percent,
-   #            change_amount,
-   #            turnover_rate,
-   #            turnover_rate_5d,
-   #            turnover_rate_10d,
-   #            total_market_value,
-   #            z_total_market_value,
-   #            industry_plate,
-   #            concept_plates,
-   #            pe,
-   #            pe_ttm,
-   #            pb,
-   #            ps,
-   #            ps_ttm,
-   #            dv_ratio,
-   #            dv_ttm,
-   #            net_profit,
-   #            net_profit_yr,
-   #            total_business_income,
-   #            total_business_income_yr,
-   #            business_fee,
-   #            sales_fee,
-   #            management_fee,
-   #            finance_fee,
-   #            total_business_fee,
-   #            business_profit,
-   #            total_profit,
-   #            ps_business_cash_flow,
-   #            return_on_equity,
-   #            npadnrgal,
-   #            net_profit_growth_rate,
-   #            interprets,
-   #            reason_for_lhbs,
-   #            lhb_num_5d,
-   #            lhb_num_10d,
-   #            lhb_num_30d,
-   #            lhb_num_60d,
-   #            hot_rank,
-   #            ma_5d,
-   #            ma_10d,
-   #            ma_20d,
-   #            ma_30d,
-   #            ma_60d,
-   #            stock_label_names,
-   #            stock_label_num,
-   #            sub_factor_names,
-   #            sub_factor_score,
-   #            stock_strategy_name,
-   #            stock_strategy_ranking,
-   #            holding_yield_2d,
-   #            holding_yield_5d,
-   #            current_timestamp() as update_time,
-   #            trade_date as td
-   #     from tmp_ads_04
-   #     where stock_strategy_ranking <=10
-   #     order by stock_strategy_ranking
-   #        """ % (start_date, end_date)
-   # ).createOrReplaceTempView('2ljqs_zxsz_hsl')
 
    # todo ====================================================================  涨停+2连板+量比+换手率  ==================================================================
    spark.sql(
@@ -381,10 +298,12 @@ def get_data(start_date, end_date):
        ),
        tmp_ads_02 as (
        --去除or 停复牌
-       select *
-       from tmp_ads_01
-       where suspension_time is null
-             or estimated_resumption_time < date_add(trade_date,1)
+       select a.*
+       from tmp_ads_01 a
+       left join (select trade_date,lead(trade_date,1)over(order by trade_date) as next_trade_date from stock.ods_trade_date_hist_sina_df) b
+            on a.trade_date = b.trade_date
+       where a.suspension_time is null
+             or a.estimated_resumption_time < b.next_trade_date
        ),
        tmp_ads_03 as (
                       select *,
@@ -419,6 +338,34 @@ def get_data(start_date, end_date):
               z_total_market_value,
               industry_plate,
               concept_plates,
+              rps_5d,
+              rps_10d,
+              rps_20d,
+              rps_50d,
+              rs,
+              rsi_6d,
+              rsi_12d,
+              ma_5d,
+              ma_10d,
+              ma_20d,
+              ma_50d,
+              high_price_250d,
+              low_price_250d,
+              stock_label_names,
+              stock_label_num,
+              sub_factor_names,
+              sub_factor_score,
+              stock_strategy_name,
+              stock_strategy_ranking,
+              holding_yield_2d,
+              holding_yield_5d,
+              hot_rank,
+              interprets,
+              reason_for_lhbs,
+              lhb_num_5d,
+              lhb_num_10d,
+              lhb_num_30d,
+              lhb_num_60d,
               pe,
               pe_ttm,
               pb,
@@ -441,26 +388,6 @@ def get_data(start_date, end_date):
               return_on_equity,
               npadnrgal,
               net_profit_growth_rate,
-              interprets,
-              reason_for_lhbs,
-              lhb_num_5d,
-              lhb_num_10d,
-              lhb_num_30d,
-              lhb_num_60d,
-              hot_rank,
-              ma_5d,
-              ma_10d,
-              ma_20d,
-              ma_30d,
-              ma_60d,
-              stock_label_names,
-              stock_label_num,
-              sub_factor_names,
-              sub_factor_score,
-              stock_strategy_name,
-              stock_strategy_ranking,
-              holding_yield_2d,
-              holding_yield_5d,
               current_timestamp() as update_time,
               trade_date as td
        from tmp_ads_04

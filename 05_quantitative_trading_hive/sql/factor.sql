@@ -35,6 +35,11 @@ create table if not exists stock_technical_indicators_df
     trade_date     date comment '交易日期',
     stock_code     string comment '股票代码',
     stock_name     string comment '股票名称',
+    rps_5d    decimal(20, 15) comment '欧奈尔rps_5d',
+    rps_10d    decimal(20, 15) comment '欧奈尔rps_10d',
+    rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
+    rps_50d    decimal(20, 15) comment '欧奈尔rps_50d',
+    rs decimal(20, 4) comment '欧奈尔RS',
     rsi_6d     decimal(20, 6) comment 'rsi_6d',
     rsi_12d decimal(20, 6) comment 'rsi_12d',
     ma_5d                     decimal(20, 4) comment '5日均线',
@@ -44,6 +49,8 @@ create table if not exists stock_technical_indicators_df
     ma_120d                    decimal(20, 4) comment '120日均线',
     ma_200d                    decimal(20, 4) comment '200日均线',
     ma_250d                    decimal(20, 4) comment '250日均线',
+    high_price_250d     decimal(20, 4) comment '250日最高价',
+    low_price_250d      decimal(20, 4) comment '250日最低价',
     update_time    timestamp comment '更新时间'
 ) comment 'python计算的指标'
     partitioned by (td date comment '分区_交易日期')

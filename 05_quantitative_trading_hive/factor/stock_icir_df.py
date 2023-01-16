@@ -11,7 +11,7 @@ import akshare as ak
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-from util.algorithmUtils import mt_rsi, ta_rsi
+from util.factorFormatUtils import neutralization, factor_ic, ic_ir
 from util.CommonUtils import get_spark
 
 # 输出显示设置
@@ -20,6 +20,7 @@ pd.options.display.max_columns=None
 pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
+
 
 def get_data(start_date, end_date):
     '''
@@ -44,50 +45,53 @@ def get_data(start_date, end_date):
     # factors_b = ['sub_factor_score']
     # for factor in factors_b:
     #     pass
-
+    factor = 'volume_ratio_1d'
     spark_df = spark.sql("""
        with tmp_01 as (
        select trade_date,
               stock_code,
               stock_name,
-              volume_ratio_1d,
-              holding_yield_2d,
-              holding_yield_5d,
+              %s as factor,
+              -- 原dwd参考的是实际操作用开盘价
+              lead(close_price,%s)over(partition by stock_code order by trade_date)/close_price-1 as holding_yield_n,
               total_market_value,
-              industry_plate
+              industry_plate,
+              suspension_time,
+              estimated_resumption_time
        from stock.dwd_stock_quotes_di
        where td between '%s' and '%s'
                and stock_name not rlike 'ST'
                and nvl(concept_plates,'保留null') not rlike '次新股'
                and nvl(stock_label_names,'保留null') not rlike '当天涨停'
-               and volume_ratio_1d is not null
-               and holding_yield_2d is not null
-               and holding_yield_5d is not null
+              
        ),
         --去除or 停复牌
        tmp_02 as (
-       select *
-       from tmp_01
-       where suspension_time is null
-             or estimated_resumption_time < date_add(trade_date,1)
+       select a.*
+       from tmp_01 a
+       left join (select trade_date,lead(trade_date,1)over(order by trade_date) as next_trade_date from stock.ods_trade_date_hist_sina_df) b
+            on a.trade_date = b.trade_date
+       where a.suspension_time is null
+             or a.estimated_resumption_time < b.next_trade_date
        ),
        -- 去极值
        tmp_median as (
         select trade_date,
                stock_code,
                stock_name,
-               (case when volume_ratio_1d<=median-3*new_median then median-3*new_median
-                     when volume_ratio_1d>=median+3*new_median then median+3*new_median
-                     else volume_ratio_1d end) as volume_ratio_1d,
-               holding_yield_2d,
-               holding_yield_5d,
+               (case when factor<=median-3*new_median then median-3*new_median
+                     when factor>=median+3*new_median then median+3*new_median
+                     else factor end) as factor,
+               holding_yield_n,
                total_market_value,
-               industry_plate,
+               industry_plate
         from (
               select  *,
-                      percentile(volume_ratio_1d,0.5)over(partition by trade_date) as median,
-                      percentile(abs(volume_ratio_1d-percentile(volume_ratio_1d,0.5)over(partition by trade_date)),0.5)over(partition by trade_date) as new_median
+                      percentile(factor,0.5)over(partition by trade_date) as median,
+                      percentile(abs(factor-percentile(factor,0.5)over(partition by trade_date)),0.5)over(partition by trade_date) as new_median
               from tmp_02
+              where holding_yield_n is not null
+                     and factor is not null
              )
        ),
        -- 标准化
@@ -95,57 +99,45 @@ def get_data(start_date, end_date):
         select trade_date,
                stock_code,
                stock_name,
-               volume_ratio_1d-avg(volume_ratio_1d)over(partition by trade_date)/std(volume_ratio_1d)over(partition by trade_date) as volume_ratio_1d,
-               holding_yield_2d,
-               holding_yield_5d,
-               log(total_market_value) as total_market_value,
-               industry_plate,
+               factor-avg(factor)over(partition by trade_date)/std(factor)over(partition by trade_date) as factor,
+               holding_yield_n,
+               -- 取对数为了近似正态分布
+               log(total_market_value) as market_value,
+               industry_plate
         from tmp_median
        )
        select *
        from tmp_std
-        """% (start_date, end_date))
+        """% (factor,2,start_date, end_date))
 
     pd_df = spark_df.toPandas()
-    # pd_df['rsi_6d'] = pd_df.groupby('stock_code',group_keys=False).apply(lambda x: ta_rsi(x['close'],6))
-    # pd_df['rsi_12d'] = pd_df.groupby('stock_code',group_keys=False).apply(lambda x: ta_rsi(x['close'],12))
-    # pd_df['update_time'] = datetime.now()
-    # pd_df['td'] = pd_df['trade_date']
-    # pd_df = pd_df[['trade_date', 'stock_code', 'stock_name', 'rsi_6d', 'rsi_12d', 'update_time', 'td']]
-    # spark_df = spark.createDataFrame(pd_df)
-    # spark_df.repartition(1).write.insertInto('factor.stock_icir_df', overwrite=True)
+    pd_df.rename(columns={'factor': factor}, inplace=True)
+    pd_df[factor] = pd_df[factor].astype(float)
+    pd_df['holding_yield_n'] = pd_df['holding_yield_n'].astype(float)
 
-    # x = cfoa_day.iloc[:, 1:]  # 市值/行业
-    # y = cfoa_day.iloc[:, 0]  # 因子值
-
-    # 行业市值中性化 第一个是y = 因子值 第二个是x= 市值+行业
-    pd_df['OLS'] = pd_df.groupby('trade_date', group_keys=False).apply(lambda x: sm.OLS(x['volume_ratio_1d'].astype(float),
-                                                                                        x['total_market_value'].join(sm.categorical(x['industry_plate'],drop=True)).astype(float), hasconst=False, missing='drop').fit().resid)
-
-    print(pd_df)
+    r_df = neutralization(factor,pd_df)
+    a = factor_ic(factor,r_df)
+    print(a)
+    b = ic_ir(factor,a)
+    print(b)
 
     spark.stop()
     print('{}：执行完毕！！！'.format(appName))
 
 
 
-# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/stock_icir_df.py 20230103 20230106
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/stock_icir_df.py 20221201 20230112
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/factor/stock_icir_df.py 20221226 20221230
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         print("请携带一个参数 all update 更新要输入开启日期 结束日期 不输入则默认当天")
     elif len(sys.argv) == 2:
-        run_type = sys.argv[1]
-        if run_type == 'all':
-            start_date = '20210101'
-            end_date = date.today().strftime('%Y%m%d')
-        else:
-            start_date = date.today().strftime('%Y%m%d')
-            end_date = start_date
-    elif len(sys.argv) == 4:
-        run_type = sys.argv[1]
-        start_date = sys.argv[2]
-        end_date = sys.argv[3]
-
+        start_date = sys.argv[1]
+        end_date = date.today().strftime('%Y%m%d')
+    elif len(sys.argv) == 3:
+        start_date = sys.argv[1]
+        end_date = sys.argv[2]
+    start_date, end_date = '20220601','20221226'
     start_time = time.time()
     get_data(start_date,end_date)
     end_time = time.time()

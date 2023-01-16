@@ -14,7 +14,6 @@ from util.CommonUtils import get_spark
 def get_data(start_date):
     try:
         appName = os.path.basename(__file__)
-        # 本地模式
         spark = get_spark(appName)
         start_date = pd.to_datetime(start_date).date()
         sql = """

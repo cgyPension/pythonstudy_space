@@ -17,22 +17,7 @@ pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
 
-#
-def data_clean(factor, new_stock_filter=new_stock_filter, st_filter=st_filter, suspended_filter=suspended_filter,limit_up_down_filter=limit_up_down_filter, index_fix=index_fix):
-    # 剔除ST、涨停、停牌、新股
-    factor = factor.mask(new_stock_filter).mask(st_filter).mask(suspended_filter).mask(limit_up_down_filter).mask(
-        ~index_fix).dropna(how='all')
-    print('券池过滤完毕')
-    # 去极值
-    factor = factor.apply(lambda x: filter_extreme_MAD(x, 3), axis=1)
-    # 标准化
-    factor = factor.sub(factor.mean(axis=1), axis=0).div(factor.std(axis=1), axis=0)  # add
-    print('因子数据清洗完成，已剔除离群值、中性化处理')
-    # 行业市值中性化
-    factor = neutralization(factor)
-    print('因子完成行业市值中性化')
 
-    return factor
 
 # spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_tfp_di.py all
 # nohup python ods_dc_stock_tfp_di.py update 20221010 20221010 >> my.log 2>&1 &

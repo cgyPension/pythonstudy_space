@@ -24,7 +24,6 @@ pd.set_option('display.unicode.east_asian_width', True)
 
 def get_data(start_date, end_date):
     appName = os.path.basename(__file__)
-    # 本地模式
     spark = get_spark(appName)
 
     pd_df = pd.DataFrame()

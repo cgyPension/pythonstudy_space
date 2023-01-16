@@ -5,11 +5,13 @@ import pandas as pd
 import numpy as np
 import talib as ta
 import MyTT as mt
+import statsmodels.api as sm
+from scipy import stats
 # 在linux会识别不了包 所以要加临时搜索目录
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-
+'''指标计算工具类'''
 
 def max_drawdown(df):
     '''计算最大回撤
@@ -60,14 +62,20 @@ def ta_rsi(close:pd.Series,n):
     return ta.RSI(close, timeperiod=n)
 
 def mt_rsi(close:pd.Series,n):
-    '''不知道为啥在factor_dwd.py算出来都是kong'''
+    '''不知道为啥在factor_dwd.py算出来都是空'''
     dif = close - mt.REF(close, 1)
     return mt.RD(mt.SMA(mt.MAX(dif, 0), n) / mt.SMA(mt.ABS(dif), n) * 100)
 
+def rps(df,n):
+    n = abs(n)-1
+    # df.sort_values(['stock_code', 'trade_date'])
+    df['lag'] = df['close_price'] / df.groupby('stock_code')['close_price'].shift(n)  # 分区內向上平移一个单位
+    # 如果分组只有一个记录则数据为na
+    df['rps'] = df.groupby('trade_date')['lag'].rank(method='min') / df.groupby('trade_date')['lag'].transform('count') * 100
+    return df['rps']
 
-def dwd_factor(df):
 
-    pass
+
 
 def test_xxx():
     pass
