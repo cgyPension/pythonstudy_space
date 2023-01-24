@@ -22,7 +22,16 @@ def get_data(start_date, end_date):
     try:
         appName = os.path.basename(__file__)
         spark = get_spark(appName)
-        start_date,end_date = pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date()
+        start_date, end_date = pd.to_datetime(start_date).date(), pd.to_datetime(end_date).date()
+        s_date = '20210101'
+        # 增量 因为持股5日收益 要提前6个交易日 这里是下一交易日开盘买入 持股两天 在第二天的收盘卖出
+        td_df = ak.tool_trade_date_hist_sina()
+        daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < start_date)]
+        daterange_df = daterange_df.iloc[-7:, 0].reset_index(drop=True)
+        if daterange_df.empty:
+            start_date = pd.to_datetime(start_date).date()
+        else:
+            start_date = pd.to_datetime(daterange_df[0]).date()
 
         spark_df = spark.sql("""
 select t1.trade_date,
@@ -41,7 +50,6 @@ select t1.trade_date,
        t2.turnover_rate_5d,
        t2.turnover_rate_10d,
        t2.total_market_value,
-       t2.z_total_market_value,
        t2.industry_plate,
        t2.concept_plates,
        t2.rps_5d,
@@ -63,6 +71,16 @@ select t1.trade_date,
        t2.sub_factor_score,
        t2.holding_yield_2d,
        t2.holding_yield_5d,
+       t2.f_volume,
+       t2.f_volume_ratio_1d,
+       t2.f_volume_ratio_5d,
+       t2.f_turnover,
+       t2.f_turnover_rate,
+       t2.f_turnover_rate_5d,
+       t2.f_turnover_rate_10d,
+       t2.f_total_market_value,
+       t2.f_pe,
+       t2.f_pe_ttm,
        
        t1.sealing_amount,
        t1.first_sealing_time,
@@ -79,7 +97,7 @@ select t1.trade_date,
        current_timestamp() as update_time,
        t1.trade_date as td
 from stock.ods_stock_zt_pool_di t1
-left join stock.dwd_stock_quotes_di t2
+left join stock.dwd_stock_quotes_stand_di t2
       on t1.trade_date = t2.trade_date
             and t1.stock_code = t2.stock_code
             and t2.td between '%s' and '%s'

@@ -201,6 +201,12 @@ print('append：', lst3)  # [10, 20, 30, 100]
 lst3.extend([99, 100])  # 在原有的列表末尾至少添加一个元素，添加元素必须是列表（添加多个）
 print('extend：', lst3)
 
+# 合并两个list
+factors_a = ['volume', 'turnover', 'turnover_rate']
+factors_b = ['sub_factor_score', 'hot_rank']
+all_factor = factors_a + factors_b
+print(all_factor)
+
 lst3.insert(1, 99)  # 在原有的列表指定位置添加一个元素
 print('insert：', lst3)
 

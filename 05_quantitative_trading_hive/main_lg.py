@@ -6,19 +6,13 @@ from datetime import date
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-from ads import ads_stock_suggest_di, ads_strategy_yield_di
-from dim import dim_dc_stock_plate_di
-from dwd import dwd_stock_quotes_di, dwd_stock_zt_di, dwd_stock_strong_di
-from ods import ods_dc_stock_quotes_di, ods_dc_stock_tfp_di, ods_lg_indicator_di, \
-    ods_dc_stock_concept_plate_rt_di, ods_dc_stock_industry_plate_rt_di, ods_dc_stock_industry_plate_cons_di, \
-    ods_dc_stock_concept_plate_cons_di, ods_stock_lrb_em_di, ods_financial_analysis_indicator_di, \
-    ods_stock_lhb_detail_em_di, ods_dc_stock_industry_plate_hist_di, ods_dc_stock_concept_plate_hist_di, \
-    ods_trade_date_hist_sina_df, ods_stock_zt_pool_di, ods_stock_strong_pool_di, ods_stock_hot_rank_wc_di, \
-    ods_dc_index_di
+from ads import ads_stock_suggest_di
+from dwd import dwd_stock_quotes_di, dwd_stock_zt_di, dwd_stock_strong_di, dwd_stock_technical_indicators_df, \
+    dwd_stock_quotes_stand_di
+from ods import ods_lg_indicator_di
 from util.CommonUtils import get_code_list, get_process_num
-from util.DBUtils import sqlalchemyUtil, hiveUtil
-from factor import stock_technical_indicators_df
-from util.stockImportExportUtils import export_stock_ndzt_hive, export_stock_zt_hive
+from util.DBUtils import hiveUtil
+from util.stockImportExportUtils import export_stock_zt_hive
 
 
 def task_update_daily():
@@ -51,7 +45,7 @@ def task_update_daily():
     start_time = time.time()
 
     # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑 有时候会漏数据 总市值不能为空
-    ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, 5)
+    # ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, 5)
 
     # 前复权 一般季度时间后一周内会修改旧数据 这时候要全量重跑这个ods
     # 如果进行价值投资，建议采用后复权 适合回测
@@ -81,18 +75,20 @@ def task_update_daily():
     # ods_dc_stock_concept_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
     # dim_dc_stock_plate_di.get_data(start_date, end_date)
 
-    # stock_technical_indicators_df.get_data()
-
     # 这个dwd有先后顺序
-    dwd_stock_quotes_di.get_data(start_date, end_date)
+    # dwd_stock_technical_indicators_df.get_data()
+    # dwd_stock_quotes_di.get_data(start_date, end_date)
+    # 这玩意全量跑不动 要一年一年跑
+    # factors = ['volume','volume_ratio_1d','volume_ratio_5d','turnover','turnover_rate','turnover_rate_5d','turnover_rate_10d','total_market_value','pe','pe_ttm']
+    # dwd_stock_quotes_stand_di.get_data(factors,start_date, end_date)
     dwd_stock_zt_di.get_data(start_date, end_date)
     dwd_stock_strong_di.get_data(start_date, end_date)
 
-    ads_stock_suggest_di.get_data(start_date, end_date)
+    # ads_stock_suggest_di.get_data(start_date, end_date)
     # ads_strategy_yield_di.get_data()
-    export_stock_zt_hive(start_date)
-    nd_codes = ['002689', '002094', '002651', '002264', '002808', '002888', '003040', '002762', '002238', '002766', '003028']
-    export_stock_ndzt_hive(start_date,nd_codes)
+    # export_stock_zt_hive(start_date)
+    # nd_codes = ['002689', '002094', '002651', '002264', '002808', '002888', '003040', '002762', '002238', '002766', '003028']
+    # export_stock_ndzt_hive(start_date,nd_codes)
     # AdsSendMail.get_data()
 
     # 程序结束运行时间

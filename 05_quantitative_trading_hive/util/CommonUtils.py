@@ -10,6 +10,8 @@ import pandas as pd
 import warnings
 import akshare as ak
 import multiprocessing
+import findspark
+findspark.init()
 from pyspark.sql import SparkSession
 warnings.filterwarnings("ignore")
 # 输出显示设置
@@ -34,6 +36,7 @@ def get_spark(appName):
         .config('spark.debug.maxToStringFields', '200') \
         .config('spark.sql.debug.maxToStringFields', '200') \
         .config('spark.rpc.message.maxSize', '1024') \
+        .config('spark.driver.maxResultSize', '3g') \
         .config('spark.driver.memory', '6g') \
         .config('spark.executor.memory' ,"3g") \
         .config('spark.default.parallelism', 300) \

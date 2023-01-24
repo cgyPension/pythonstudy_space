@@ -119,4 +119,4 @@ if __name__ == '__main__':
     # df = ak.stock_lrb_em(date='20221231')
     # df = ak.stock_board_concept_name_em()
     # print(df)
-
+    print(type(date('2021-01-01')),date('2021-01-01'))

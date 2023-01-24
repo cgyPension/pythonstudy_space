@@ -44,15 +44,15 @@ plt.rcParams['axes.unicode_minus']=False       #用来正常显示负号
 # python /opt/code/pythonstudy_space/05_quantitative_trading_hive/test/test2.py
 if __name__ == '__main__':
     df = pd.DataFrame({"A": ['a', 'b', 'b', 'd'],
-                       "B": [11, 2, 4, 3],
-                       "C": [4, 3, 8, 5],
-                       "D": [5, 4, 2, 8]})
+                       "B": [11, 2, -4, 3],
+                       "C": [1, 2, None, 6],
+                       "D": [5.23, 4.66, 2, None]})
+
     print(df)
-
-    t_stat, p_value = stats.ttest_1samp(df['D'], 0)
-    print(t_stat)
-    print(p_value)
-    # if df.empty:
-    #     df = ak.stock_lrb_em(date='20220930')
-    # print(df)
-
+    # print(df.dropna(subset=["C","D"]))
+    print(df[['B','C']].corr())
+    print(df[['B','C']].dropna().corr())
+    print(round(6.1234567891123456789,10))
+    result_df = pd.DataFrame(columns=['A'])
+    a = pd.merge(result_df, df, how='outer', on=['A'])
+    print('a',a)

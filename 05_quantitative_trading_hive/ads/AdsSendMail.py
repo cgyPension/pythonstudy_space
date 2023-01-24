@@ -52,9 +52,9 @@ def get_data(start_date):
         print(e)
     print('{}：执行完毕！！！'.format(appName))
 
-# spark-submit /opt/code/05_quantitative_trading_hive/ods/AdsSendMail.py
-# nohup AdsSendMail.py >> my.log 2>&1 &
-# python AdsSendMail.py
+# spark-submit /opt/code/05_quantitative_trading_hive/ods/tmp_dwd_stock_quotes_stand_di.py
+# nohup tmp_dwd_stock_quotes_stand_di.py >> my.log 2>&1 &
+# python tmp_dwd_stock_quotes_stand_di.py
 if __name__ == '__main__':
     start_time = time.time()
     # start_date = date.today()

@@ -24,7 +24,6 @@ insert into dim_stock_label VALUES
        ('上穿30日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
        ('上穿60日均线','最高价>N日移动平均线=N日收盘价之和/N',0,null,current_timestamp()),
 
-       ('连续2天量升价跌-','连续两天量比>1 连续两天放量且连续两天收盘价比前收盘价低',1,null,current_timestamp()),
 -- 龙虎榜 解读 要分买 卖 正负 主力做T(T+0)不当 龙虎榜是用买卖，还是用那个总的净买入额
        ('当天龙虎榜_买','东财龙虎榜买',1,null,current_timestamp()),
        ('当天龙虎榜_卖-','东财龙虎榜卖',1,null,current_timestamp()),
@@ -43,6 +42,7 @@ insert into dim_stock_label VALUES
 
        ('行业板块涨跌幅前10%%-','百分比排序 desc',1,null,current_timestamp()),
        ('连续N天量价齐升','连续N天量比>1 and 涨幅>0',0,null,current_timestamp()),
+       ('连续N天量价齐跌','连续N天量比<1 and 涨幅<0',0,null,current_timestamp()),
 
        ('rsi_6d超卖','rsi_6d<=20 超卖区 则买入',1,'用的是ta 同花顺上的平滑rsi',current_timestamp()),
        ('rsi_6d超买-','rsi_6d>=80 超买区 则卖出',1,null,current_timestamp()),

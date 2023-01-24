@@ -23,7 +23,6 @@ create table if not exists ads_stock_suggest_di
     turnover_rate_5d         decimal(20, 4) comment '5日平均换手率',
     turnover_rate_10d        decimal(20, 4) comment '10日平均换手率',
     total_market_value       decimal(20, 4) comment '总市值',
-    z_total_market_value     decimal(20, 4) comment '行业标准差总市值',
     industry_plate           string comment '行业板块',
     concept_plates           string comment '概念板块 ,拼接',
 
@@ -80,6 +79,16 @@ create table if not exists ads_stock_suggest_di
     return_on_equity          decimal(20, 4) comment '净资产收益率(%)',
     npadnrgal                 decimal(20, 4) comment '扣除非经常性损益后的净利润(元)',
     net_profit_growth_rate    decimal(20, 4) comment '净利润增长率(%)',
+    f_volume                  decimal(20, 10) comment '极值标准中性化_成交量',
+    f_volume_ratio_1d         decimal(20, 10) comment '极值标准中性化_量比_1d 与昨日对比',
+    f_volume_ratio_5d         decimal(20, 10) comment '极值标准中性化_量比：过去5个交易日',
+    f_turnover                decimal(20, 10) comment '极值标准中性化_成交额',
+    f_turnover_rate           decimal(20, 10) comment '极值标准中性化_换手率',
+    f_turnover_rate_5d        decimal(20, 10) comment '极值标准中性化_5日平均换手率',
+    f_turnover_rate_10d       decimal(20, 10) comment '极值标准中性化_10日平均换手率',
+    f_total_market_value      decimal(20, 10) comment '极值标准中性化_总市值',
+    f_pe                      decimal(20, 10) comment '极值标准中性化_市盈率',
+    f_pe_ttm                  decimal(20, 10) comment '极值标准中性化_市盈率TTM',
     update_time              timestamp comment '更新时间'
 ) comment '股票推荐 （top10）'
     partitioned by (td date comment '分区_交易日期')

@@ -33,7 +33,6 @@ def datagrip_hive_where(codes):
     print('{}：执行完毕！！！'.format(appName))
 
 def export_hive(start_date,sql,stock_strategy_name='all量化投资操作',ths=False,csv=False):
-    start_date = pd.to_datetime(start_date).date()
     # 新浪财经的股票交易日历数据
     df = ak.tool_trade_date_hist_sina()
     df = df[df['trade_date'] > start_date].reset_index(drop=True)
@@ -63,25 +62,27 @@ def export_stock_ndzt_hive(start_date,codes,stock_strategy_name='女帝打板',t
         r.append(code)
     sql = """
                 select substr(stock_code,3) as stock_code
-                from stock.dwd_stock_quotes_di
+                from stock.dwd_stock_quotes_stand_di
                 where td = '%s'
                     and stock_code in(%s)
                     and stock_label_names rlike '当天涨停'
-                order by sub_factor_score desc,turnover_rate
+                order by sub_factor_score desc,f_turnover_rate
             """% (start_date,str(r)[1:-1])
     export_hive(start_date,sql, stock_strategy_name)
 
 def export_stock_zt_hive(start_date,stock_strategy_name='昨日涨停',ths=False,csv=False):
+    start_date = pd.to_datetime(start_date).date()
     sql = """
                 select substr(stock_code,3) as stock_code
-                from stock.dwd_stock_quotes_di
+                from stock.dwd_stock_quotes_stand_di
                 where td = '%s'
                     and stock_label_names rlike '当天涨停'
-                order by sub_factor_score desc,turnover_rate
+                order by sub_factor_score desc,f_turnover_rate
             """% (start_date)
     export_hive(start_date,sql, stock_strategy_name)
 
 def export_stock_qs_hive(start_date,stock_strategy_name='昨日强势',ths=False,csv=False):
+    start_date = pd.to_datetime(start_date).date()
     sql = """
                 select substr(stock_code,3) as stock_code
                 from stock.dwd_stock_strong_di
@@ -95,6 +96,7 @@ def export_stock_qs_hive(start_date,stock_strategy_name='昨日强势',ths=False
 if __name__ == '__main__':
     start_time = time.time()
     codes = ['002689','002094','002651','002264','002808','002888','003040','002762','002238','002766','003028']
-
+    # datagrip_hive_where(codes)
+    export_stock_zt_hive('2023-01-16')
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

@@ -2,13 +2,17 @@ create database factor;
 use factor;
 
 -- TODO =========================================================  xx  =====================================================================
---T_ABS均值' : >2则 因子显著有效
---T_ABS>2(%)' : 因子显著性是否稳定
---IC_均值' : 因子整体趋势(spearman 同涨同跌不看幅度)
---IC_IR' : 因子是否稳健，越大越稳定
---IC>0.00(%)' : 是否为正向因子
---IC>0.02(%)' : 是否为可用因子(均值为负，则<-0.02)
---IC>0.05(%)' : 是否为强势因子(均值为负，则<-0.05)
+--歧义ic一般是指ic均值
+--ic_mean(ic均值的绝对值)：>0.05好;>0.1很好;>0.15非常好;>0.2可能错误(未来函数);当ic均值>0是正向因子
+--ic_ir(ir=ic均值/ic标准差)：>=0.5认为因子稳定获取超额收益能力较强;越大越好
+--ic>0：ic>0的概率 没什么作用
+--abs_ic>0.02：ic绝对值>0,02的比例
+--t_abs：样本T检验，X对比0，如果t只在1，-1之间，说明X均值为0，假设成立;在这绝对值应该越大越好，t_abs<1：因子有效性差
+--p：当p值小于0.05时，认为与0差异显著;在这越小越好
+--skew：偏度 为正则是右偏，为负则是左偏，指正态左右偏峰谷在另一则
+--kurtosis：峰度 峰度描述的是分布集中趋势高峰的形态，通常与标准正态分布相比较。
+--         在归一化到同一方差时，若分布的形状比标准正态分布更瘦高，则称为尖峰分布，若分布的形状比标准正态分布更矮胖，则称为平峰分布。
+--         当峰度系数为 0 则为标准正态分布，大于 0 为尖峰分布，小于 0 为平峰分布。
 drop table if exists factor;
 create table if not exists factor
 (
@@ -28,35 +32,6 @@ create table if not exists factor
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
-
-drop table if exists stock_technical_indicators_df;
-create table if not exists stock_technical_indicators_df
-(
-    trade_date     date comment '交易日期',
-    stock_code     string comment '股票代码',
-    stock_name     string comment '股票名称',
-    rps_5d    decimal(20, 15) comment '欧奈尔rps_5d',
-    rps_10d    decimal(20, 15) comment '欧奈尔rps_10d',
-    rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
-    rps_50d    decimal(20, 15) comment '欧奈尔rps_50d',
-    rs decimal(20, 4) comment '欧奈尔RS',
-    rsi_6d     decimal(20, 6) comment 'rsi_6d',
-    rsi_12d decimal(20, 6) comment 'rsi_12d',
-    ma_5d                     decimal(20, 4) comment '5日均线',
-    ma_10d                    decimal(20, 4) comment '10日均线',
-    ma_20d                    decimal(20, 4) comment '20日均线',
-    ma_50d                    decimal(20, 4) comment '50日均线',
-    ma_120d                    decimal(20, 4) comment '120日均线',
-    ma_200d                    decimal(20, 4) comment '200日均线',
-    ma_250d                    decimal(20, 4) comment '250日均线',
-    high_price_250d     decimal(20, 4) comment '250日最高价',
-    low_price_250d      decimal(20, 4) comment '250日最低价',
-    update_time    timestamp comment '更新时间'
-) comment 'python计算的指标'
-    partitioned by (td date comment '分区_交易日期')
-    row format delimited fields terminated by '\t'
-    stored as orc
-    tblproperties ('orc.compress' = 'snappy');
 
 
 

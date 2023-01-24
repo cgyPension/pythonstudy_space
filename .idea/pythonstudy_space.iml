@@ -15,4 +15,11 @@
   <component name="PyDocumentationSettings">
     <option name="renderExternalDocumentation" value="true" />
   </component>
+  <component name="PyNamespacePackagesService">
+    <option name="namespacePackageFolders">
+      <list>
+        <option value="$MODULE_DIR$/05_quantitative_trading_hive/bak_ui" />
+      </list>
+    </option>
+  </component>
 </module>

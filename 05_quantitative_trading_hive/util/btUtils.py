@@ -1,11 +1,10 @@
 import os
 import sys
-
-from util.CommonUtils import get_spark
-
+# 在linux会识别不了包 所以要加临时搜索目录
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
+from util.CommonUtils import get_spark
 import backtrader as bt
 from backtrader.mathsupport import average
 from datetime import date, datetime,timedelta
@@ -27,7 +26,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
-# 在linux会识别不了包 所以要加临时搜索目录
+
 from util import algorithmUtils
 
 # 输出显示设置

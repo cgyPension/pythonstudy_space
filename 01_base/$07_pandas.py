@@ -595,7 +595,9 @@ def test_corr():
     '''
     df = pd.DataFrame([[1, 6, 7, 5, 1], [2, 10, 8, 3, 4], [3, 4, 0, 10, 2]],columns=['val1', 'val2', 'val3', 'val4', 'val5'])
     print(df)
+    print(type(df))
     print(df.corr())
+    print(type(df.corr()))
     # 热力图
     sns.heatmap(df.corr(), linewidths=0.1, vmax=1.0, square=True, linecolor='white', annot=True)
     plt.show()
@@ -677,4 +679,4 @@ def test_xxx():
     pass
 
 if __name__ == '__main__':
-    test_pct_change()
+    test_corr()

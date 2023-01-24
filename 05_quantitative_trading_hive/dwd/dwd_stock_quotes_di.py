@@ -121,7 +121,6 @@ select t1.trade_date,
        if(lag(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.turnover_rate)over(partition by t1.stock_code order by t1.trade_date rows between 4 preceding and current row)) as turnover_rate_5d,
        if(lag(t1.close_price,9)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.turnover_rate)over(partition by t1.stock_code order by t1.trade_date rows between 9 preceding and current row)) as turnover_rate_10d,
        t2.total_market_value,
-       t2.total_market_value-avg(t2.total_market_value)over(partition by t1.trade_date,plate_1.industry_plate)/std(t2.total_market_value)over(partition by t1.trade_date,plate_1.industry_plate) as z_total_market_value,
        plate_1.industry_plate,
        plate_2.concept_plates,
        tmp_dim_industry_rps.pr_industry_cp,
@@ -175,6 +174,7 @@ select t1.trade_date,
        t9.ma_20d,
        t9.ma_50d,
        t9.ma_120d,
+       t9.ma_150d,
        t9.ma_200d,
        t9.ma_250d,
        t9.high_price_250d,
@@ -208,7 +208,7 @@ left join stock.ods_stock_hot_rank_wc_di t8
        on t1.trade_date = t8.trade_date
             and t1.stock_code = t8.stock_code
             and t8.td between '%s' and '%s'
-left join factor.stock_technical_indicators_df t9
+left join stock.dwd_stock_technical_indicators_df t9
        on t1.trade_date = t9.trade_date
             and t1.stock_code = t9.stock_code
             and t9.td between '%s' and '%s'
@@ -246,24 +246,41 @@ where volume_ratio_1d>1
 ),
 tmp_lx_ljqs_02 as (
 select *,
-       rank()over(partition by stock_code order by date_id) rk
+       date_id-rank()over(partition by stock_code order by date_id) as flag
 from tmp_lx_ljqs_01
 ),
 tmp_lx_ljqs_03 as (
 select *,
-       (date_id-rk) as flag
-from tmp_lx_ljqs_02
-),
-tmp_lx_ljqs_04 as (
+       '连续'||count(1)over(partition by stock_code,flag order by trade_date)||'天量价齐升' as lx_ljqs_days
+from tmp_lx_ljqs_02),
+tmp_lx_ljqd_01 as (
 select trade_date,
        stock_code,
-       count(1)over(partition by stock_code,flag order by trade_date) as ct
-from tmp_lx_ljqs_03
+       date_id
+from(
+      select t1.trade_date,
+       t1.stock_code,
+       t1.change_percent,
+       if(lag(t1.volume,1)over(partition by t1.stock_code order by t1.trade_date) is null or t1.volume is null,null,t1.volume/lag(t1.volume,1,null)over(partition by t1.stock_code order by t1.trade_date)) as volume_ratio_1d,
+       t2.date_id
+from stock.ods_dc_stock_quotes_di t1
+left join stock.ods_trade_date_hist_sina_df t2
+        on t1.trade_date = t2.trade_date
+        )
+where volume_ratio_1d<1
+    and change_percent<0
 ),
-tmp_lx_ljqs_05 as (
+tmp_lx_ljqd_02 as (
+select trade_date,
+       stock_code,
+       date_id-rank()over(partition by stock_code order by date_id) as flag
+from tmp_lx_ljqd_01)
+,
+tmp_lx_ljqd_03 as (
 select *,
-       '连续'||ct||'天量价齐升' as lx_ljqs_days
-from tmp_lx_ljqs_04)
+       '连续'||count(1)over(partition by stock_code,flag order by trade_date)||'天量价齐跌' as lx_ljqd_days
+from tmp_lx_ljqd_02
+)
 select t1.*,
        if((t1.rps_5d >=87 and t1.rps_10d >=87 and t1.rps_20d >=87) or 
           (t1.rps_5d >=87 and t1.rps_10d >=87 and t1.rps_50d >=87) or 
@@ -276,26 +293,23 @@ select t1.*,
        if(percent_rank()over(partition by t1.trade_date order by t1.total_market_value)<0.333,1,0) as is_min_market_value,
        if(percent_rank()over(partition by t1.trade_date order by t1.total_market_value) >=0.333 and percent_rank()over(partition by t1.trade_date order by t1.total_market_value) <0.666,1,0) as is_mid_market_value,
        if(percent_rank()over(partition by t1.trade_date order by t1.total_market_value) >=0.666,1,0) as is_max_market_value,
-       if(percent_rank()over(partition by t1.trade_date order by t1.z_total_market_value)<0.333,1,0) as is_z_min_market_value,
-       if(percent_rank()over(partition by t1.trade_date order by t1.z_total_market_value) >=0.333 and percent_rank()over(partition by t1.trade_date order by t1.z_total_market_value) <0.666,1,0) as is_z_mid_market_value,
-       if(percent_rank()over(partition by t1.trade_date order by t1.z_total_market_value) >=0.666,1,0) as is_z_max_market_value,
-       if(lag(t1.volume_ratio_1d,1)over(partition by t1.stock_code order by t1.trade_date) >1 and t1.volume_ratio_1d >1,1,0) as is_rise_volume_2d,
-       if(lag(t1.volume_ratio_1d,1)over(partition by t1.stock_code order by t1.trade_date) >1 and t1.volume_ratio_1d >1
-           and lag(t1.change_percent,1)over(partition by t1.stock_code order by t1.trade_date) < 0
-                        and t1.change_percent<0,1,0) as is_rise_volume_2d_low,
        if(t1.concept_plates rlike '预盈预增',1,0) as is_pre_profit_increase,
        if(t1.concept_plates rlike '预亏预减',1,0) as is_pre_deficiency_decrease,
        if(t1.lx_sealing_nums is not null,1,0) as is_zt,
        if(t1.selection_reason is not null,1,0) as is_strong,
        t2.lx_ljqs_days,
+       t3.lx_ljqd_days,
        if(t1.rsi_6d<=20,1,0) as is_rsi_6d_over_sell,
        if(t1.rsi_6d>=80,1,0) as is_rsi_6d_over_buy,
        if(t1.rsi_6d>t1.rsi_12d and lag(t1.rsi_6d,1)over(partition by t1.stock_code order by t1.trade_date)<lag(t1.rsi_12d,1)over(partition by t1.stock_code order by t1.trade_date),1,0) as is_rsi_6_bigger_12,
        if(t1.rsi_6d<t1.rsi_12d and lag(t1.rsi_6d,1)over(partition by t1.stock_code order by t1.trade_date)>lag(t1.rsi_12d,1)over(partition by t1.stock_code order by t1.trade_date),1,0) as is_rsi_6_smaller_12
 from tmp_dwd_01 t1
-left join tmp_lx_ljqs_05 t2
+left join tmp_lx_ljqs_03 t2
         on t1.trade_date = t2.trade_date
             and t1.stock_code = t2.stock_code
+left join tmp_lx_ljqd_03 t3
+        on t1.trade_date = t3.trade_date
+            and t1.stock_code = t3.stock_code
         """).createOrReplaceTempView('tmp_dwd_02')
 
         spark_df = spark.sql("""
@@ -317,7 +331,6 @@ select t1.trade_date,
        t1.turnover_rate_5d,
        t1.turnover_rate_10d,
        t1.total_market_value,
-       t1.z_total_market_value,
        t1.industry_plate,
        t1.concept_plates,
        t1.rps_5d,
@@ -332,6 +345,7 @@ select t1.trade_date,
        t1.ma_20d,
        t1.ma_50d,
        t1.ma_120d,
+       t1.ma_150d,
        t1.ma_200d,
        t1.ma_250d,
        t1.high_price_250d,
@@ -339,9 +353,6 @@ select t1.trade_date,
        concat_ws(',',if(t1.is_min_market_value=1,'小市值',null),
                      if(t1.is_mid_market_value=1,'中市值',null),
                      if(t1.is_max_market_value=1,'大市值',null),
-                     if(t1.is_z_min_market_value=1,'z小市值',null),
-                     if(t1.is_z_mid_market_value=1,'z中市值',null),
-                     if(t1.is_z_max_market_value=1,'z大市值',null),
                      if(t1.is_stock_rps=1,'个股rps>=87',null),
                      if(t1.is_industry_rps=1,'行业rps>=87',null),
                      if(t1.is_concept_rps=1,'概念rps>=87',null),
@@ -349,41 +360,38 @@ select t1.trade_date,
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
-                     if(t1.is_rise_volume_2d_low=1,'连续2天量升价跌-',null),
                      if(t1.is_pre_profit_increase=1,'预盈预增',null),
                      if(t1.is_pre_deficiency_decrease=1,'预亏预减-',null),
                      if(t1.is_zt=1,'当天涨停',null),
                      if(t1.is_strong=1,'当天强势股',null),
                      t1.lx_ljqs_days,
+                     t1.lx_ljqd_days,
                      if(t1.is_rsi_6d_over_sell=1,'rsi_6d超卖',null),
                      if(t1.is_rsi_6d_over_buy=1,'rsi_6d超买-',null),
                      if(t1.is_rsi_6_bigger_12=1,'rsi_6_12金叉',null),
                      if(t1.is_rsi_6_smaller_12=1,'rsi_6_12死叉-',null)
        ) as stock_label_names,
        (
-        t1.is_min_market_value+
-        t1.is_mid_market_value+
-        t1.is_max_market_value+
-        t1.is_z_min_market_value+
-        t1.is_z_mid_market_value+
-        t1.is_z_max_market_value+
-        t1.is_stock_rps+
-        t1.is_industry_rps+
-        t1.is_concept_rps+
-        t1.is_pr_industry_cp_10+
-        t1.is_lhb_buy+
-        t1.is_lhb_sell+
-        t1.is_lhb_60d+
-        t1.is_rise_volume_2d_low+
-        t1.is_pre_profit_increase+
-        t1.is_pre_deficiency_decrease+
-        t1.is_zt+
-        t1.is_strong+
+        nvl(t1.is_min_market_value,0)+
+        nvl(t1.is_mid_market_value,0)+
+        nvl(t1.is_max_market_value,0)+
+        nvl(t1.is_stock_rps,0)+
+        nvl(t1.is_industry_rps,0)+
+        nvl(t1.is_concept_rps,0)+
+        nvl(t1.is_pr_industry_cp_10,0)+
+        nvl(t1.is_lhb_buy,0)+
+        nvl(t1.is_lhb_sell,0)+
+        nvl(t1.is_lhb_60d,0)+
+        nvl(t1.is_pre_profit_increase,0)+
+        nvl(t1.is_pre_deficiency_decrease,0)+
+        nvl(t1.is_zt,0)+
+        nvl(t1.is_strong,0)+
         if(t1.lx_ljqs_days is not null,1,0)+
-        t1.is_rsi_6d_over_sell+
-        t1.is_rsi_6d_over_buy+
-        t1.is_rsi_6_bigger_12+
-        t1.is_rsi_6_smaller_12
+        if(t1.lx_ljqd_days is not null,1,0)+
+        nvl(t1.is_rsi_6d_over_sell,0)+
+        nvl(t1.is_rsi_6d_over_buy,0)+
+        nvl(t1.is_rsi_6_bigger_12,0)+
+        nvl(t1.is_rsi_6_smaller_12,0)
         ) as stock_label_num,
        concat_ws(',',if(t1.is_industry_rps=1,'行业rps>=87',null),
                      if(t1.is_stock_rps=1,'个股rps>=87',null),
@@ -391,7 +399,6 @@ select t1.trade_date,
                      if(t1.is_pr_industry_cp_10=1,'行业板块涨跌幅前10%%-',null),
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
-                     if(t1.is_rise_volume_2d_low=1,'连续2天量升价跌-',null),
                      if(t1.is_pre_profit_increase=1,'预盈预增',null),
                      if(t1.is_pre_deficiency_decrease=1,'预亏预减-',null),
                      if(t1.is_rsi_6d_over_sell=1,'rsi_6d超卖',null),
@@ -400,19 +407,18 @@ select t1.trade_date,
                      if(t1.is_rsi_6_smaller_12=1,'rsi_6_12死叉-',null)
        ) as sub_factor_names,
        (
-        t1.is_industry_rps+
-        t1.is_stock_rps+
-        t1.is_concept_rps-
-        t1.is_pr_industry_cp_10+
-        t1.is_lhb_buy-
-        t1.is_lhb_sell-
-        t1.is_rise_volume_2d_low+
-        t1.is_pre_profit_increase-
-        t1.is_pre_deficiency_decrease+
-        t1.is_rsi_6d_over_sell-
-        t1.is_rsi_6d_over_buy+
-        t1.is_rsi_6_bigger_12-
-        t1.is_rsi_6_smaller_12
+        nvl(t1.is_industry_rps,0)+
+        nvl(t1.is_stock_rps,0)+
+        nvl(t1.is_concept_rps,0)-
+        nvl(t1.is_pr_industry_cp_10,0)+
+        nvl(t1.is_lhb_buy,0)-
+        nvl(t1.is_lhb_sell,0)-
+        nvl(t1.is_pre_profit_increase,0)-
+        nvl(t1.is_pre_deficiency_decrease,0)+
+        nvl(t1.is_rsi_6d_over_sell,0)-
+        nvl(t1.is_rsi_6d_over_buy,0)+
+        nvl(t1.is_rsi_6_bigger_12,0)-
+        nvl(t1.is_rsi_6_smaller_12,0)
         ) as sub_factor_score,
        t1.holding_yield_2d,
        t1.holding_yield_5d,
