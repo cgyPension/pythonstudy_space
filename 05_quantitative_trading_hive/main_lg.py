@@ -3,6 +3,8 @@ import sys
 import time
 from datetime import date
 # 在linux会识别不了包 所以要加临时搜索目录
+from dim import dim_plate_df
+
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
@@ -45,7 +47,7 @@ def task_update_daily():
     start_time = time.time()
 
     # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑 有时候会漏数据 总市值不能为空
-    # ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, 5)
+    ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, 5)
 
     # 前复权 一般季度时间后一周内会修改旧数据 这时候要全量重跑这个ods
     # 如果进行价值投资，建议采用后复权 适合回测
@@ -73,14 +75,15 @@ def task_update_daily():
     # ods_dc_stock_concept_plate_rt_di.get_data(start_date)
     # ods_dc_stock_industry_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
     # ods_dc_stock_concept_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
+    # dim_plate_df.get_data()
     # dim_dc_stock_plate_di.get_data(start_date, end_date)
 
     # 这个dwd有先后顺序
-    # dwd_stock_technical_indicators_df.get_data()
-    # dwd_stock_quotes_di.get_data(start_date, end_date)
+    dwd_stock_technical_indicators_df.get_data()
+    dwd_stock_quotes_di.get_data(start_date, end_date)
     # 这玩意全量跑不动 要一年一年跑
-    # factors = ['volume','volume_ratio_1d','volume_ratio_5d','turnover','turnover_rate','turnover_rate_5d','turnover_rate_10d','total_market_value','pe','pe_ttm']
-    # dwd_stock_quotes_stand_di.get_data(factors,start_date, end_date)
+    factors = ['volume','volume_ratio_1d','volume_ratio_5d','turnover','turnover_rate','turnover_rate_5d','turnover_rate_10d','total_market_value','pe','pe_ttm']
+    dwd_stock_quotes_stand_di.get_data(factors,start_date, end_date)
     dwd_stock_zt_di.get_data(start_date, end_date)
     dwd_stock_strong_di.get_data(start_date, end_date)
 

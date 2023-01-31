@@ -95,24 +95,38 @@ create table if not exists dim_stock_strategy
     row format delimited fields terminated by '\t'
     stored as orc tblproperties ('orc.compress' = 'snappy');
 
-
-
-drop table if exists dim_dc_stock_plate_di;
-create table if not exists dim_dc_stock_plate_di
+drop table if exists dim_plate_df;
+create table if not exists dim_plate_df
 (
-    trade_date    date comment '交易日期',
-    stock_code     string comment '股票代码',
-    stock_name     string comment '股票名称',
-    industry_plate string comment '行业板块',
-    concept_plates string comment '概念板块 ,拼接',
-    pr_industry_cp decimal(20, 15) comment '行业涨跌幅排名 desc',
+    trade_date     date comment '交易日期',
+    plate_name string comment '板块名称',
+    open_price     decimal(20, 4) comment '开盘价',
+    close_price    decimal(20, 4) comment '收盘价',
+    high_price     decimal(20, 4) comment '最高价',
+    low_price      decimal(20, 4) comment '最低价',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    change_amount  decimal(20, 4) comment '涨跌额',
+    volume         bigint comment '成交量',
+    turnover       decimal(20, 4) comment '成交额',
+    amplitude      decimal(20, 4) comment '振幅',
+    turnover_rate  decimal(20, 4) comment '换手率',
     rps_5d    decimal(20, 15) comment '欧奈尔rps_5d',
     rps_10d    decimal(20, 15) comment '欧奈尔rps_10d',
+    rps_15d    decimal(20, 15) comment '欧奈尔rps_15d',
     rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
     rps_50d    decimal(20, 15) comment '欧奈尔rps_50d',
-    is_concept_rps int comment '是否概念三线欧奈尔rps>=90',
-    update_time    timestamp comment '更新时间'
-) comment ' 东方财富-板块维表'
+    ma_5d                     decimal(20, 4) comment '5日均线',
+    ma_10d                    decimal(20, 4) comment '10日均线',
+    ma_20d                    decimal(20, 4) comment '20日均线',
+    ma_50d                    decimal(20, 4) comment '50日均线',
+    ma_120d                    decimal(20, 4) comment '120日均线',
+    ma_150d                    decimal(20, 4) comment '150日均线',
+    ma_200d                    decimal(20, 4) comment '200日均线',
+    ma_250d                    decimal(20, 4) comment '250日均线',
+    high_price_250d     decimal(20, 4) comment '250日最高价',
+    low_price_250d      decimal(20, 4) comment '250日最低价',
+    update_time                  timestamp comment '更新时间'
+) comment '东方财富-沪深板块-行业概念板块汇总'
     partitioned by (td date comment '分区_交易日期')
     row format delimited fields terminated by '\t'
     stored as orc
@@ -129,8 +143,26 @@ create table if not exists dim_stock_fee_rate
     stored as orc tblproperties ('orc.compress' = 'snappy');
 insert into dim_stock_fee_rate values(0.0005,0.00002,0.001);
 
-
-
+drop table if exists dim_dc_stock_plate_di;
+create table if not exists dim_dc_stock_plate_di
+(
+    trade_date    date comment '交易日期',
+    stock_code     string comment '股票代码',
+    stock_name     string comment '股票名称',
+    industry_plate string comment '行业板块',
+    concept_plates string comment '概念板块 ,拼接',
+    pr_industry_cp decimal(20, 15) comment '行业涨跌幅排名 desc',
+    rps_5d    decimal(20, 15) comment '欧奈尔rps_5d',
+    rps_10d    decimal(20, 15) comment '欧奈尔rps_10d',
+    rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
+    rps_50d    decimal(20, 15) comment '欧奈尔rps_50d',
+    is_concept_rps int comment '是否概念三线欧奈尔rps>=90',
+    update_time    timestamp comment '更新时间'
+) comment ' 东方财富-成分股板块维表'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
 
 
 

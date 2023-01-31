@@ -28,4 +28,3 @@ order by trade_date,stock_strategy_ranking;
 where td >= '2021-12-01'
 select sum(if(stock_strategy_ranking<=3,1,0)) from tmp_ads_05;
 */
-

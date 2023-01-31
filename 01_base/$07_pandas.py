@@ -663,8 +663,28 @@ def test_mask():
 def test_cummax():
     pass
 
-def test_xxx():
-    pass
+def test_melt():
+    '''
+    将DataFrame从宽格式转换为长格式，可选择保留标识符集。
+    此函数可用于将DataFrame
+    转换为一种格式，其中一列或多列是标识符变量(id_vars)，而所有其他列，被视为测量变量(value_vars)，“未旋转”到行轴，只留下两个非标识符列、“变量”和“值”。
+
+    pandas.melt(frame, id_vars=None, value_vars=None, var_name=None, value_name='value', col_level=None)
+    frame:要处理的数据集。
+    id_vars:不需要被转换的列名。
+    value_vars:需要转换的列名，如果剩下的列全部都要转换，就不用写了。
+    var_name和value_name是自定义设置对应的列名。
+    col_level :如果列是MultiIndex，则使用此级别。
+    '''
+    df = pd.DataFrame({"date": ['2023-01-01','2023-01-02','2023-01-03','2023-01-04'],
+                       "ma_5d": [11, 2, 4, 3],
+                       "ma_10d": [4, 3, 8, 5],
+                       "ma_20d": [5, 4, 2, 8]})
+
+    print(df)
+    print('全部转换：',pd.melt(df,id_vars=['date']))
+    print('个别字段转换：',pd.melt(df,id_vars=['date'],value_vars=['ma_5d']))
+    print('对修改后的列设置新列名：',pd.melt(df,id_vars=['date'],value_vars=['ma_5d'],var_name='hi',value_name='hello'))
 
 def test_xxx():
     pass
@@ -679,4 +699,4 @@ def test_xxx():
     pass
 
 if __name__ == '__main__':
-    test_corr()
+    test_melt()

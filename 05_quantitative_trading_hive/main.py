@@ -6,7 +6,7 @@ from datetime import date
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-from dim import dim_dc_stock_plate_di
+from dim import dim_dc_stock_plate_di, dim_plate_df
 from dwd import dwd_stock_technical_indicators_df, dwd_stock_quotes_stand_di
 from ods import ods_dc_stock_quotes_di, ods_dc_stock_tfp_di, ods_dc_stock_concept_plate_rt_di, ods_dc_stock_industry_plate_rt_di, ods_dc_stock_industry_plate_cons_di, \
     ods_dc_stock_concept_plate_cons_di, ods_stock_lrb_em_di, ods_stock_lhb_detail_em_di, ods_dc_stock_industry_plate_hist_di, ods_dc_stock_concept_plate_hist_di, \
@@ -74,6 +74,7 @@ def task_update_daily():
     ods_dc_stock_concept_plate_rt_di.get_data(start_date)
     ods_dc_stock_industry_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
     ods_dc_stock_concept_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
+    dim_plate_df.get_data()
     dim_dc_stock_plate_di.get_data(start_date, end_date)
 
     # 这个dwd有先后顺序
