@@ -29,7 +29,6 @@ class UiPlotly:
         self.lowStand = 0.99
         self.yStep = 0.015
 
-
     def zx_fig(self, df,melt_list,threshold=0):
         '''
         :param df: 数据
