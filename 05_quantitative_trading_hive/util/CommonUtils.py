@@ -47,13 +47,32 @@ def get_spark(appName):
         .enableHiveSupport().getOrCreate()
     return spark
 
-def get_trade_date():
-    """获得交易日"""
-    current_dt = date.today()
-    # 新浪财经的股票交易日历数据
-    df = ak.tool_trade_date_hist_sina()
-    df = df[df['trade_date'] > pd.to_datetime(current_dt).date()].reset_index(drop=True)
-    current_dt = df.iat[0, 0]  # 下一个交易日
+def get_trade_date_nd(start_date,n):
+    '''
+    向前 向后 取n日的交易日期
+    :param start_date:
+    :param n: n为负向前取 为正向后取
+    :return:
+    '''
+    s_date = '20210101'
+    start_date = pd.to_datetime(start_date).date()
+    # 增量 因为持股5日收益 要提前6个交易日 这里是下一交易日开盘买入 持股两天 在第二天的收盘卖出
+    td_df = ak.tool_trade_date_hist_sina()
+    start_date_n = date.today()
+    if n>0:
+        daterange_df = td_df[(td_df.trade_date >= start_date)]
+        daterange_df = daterange_df.iloc[n:, 0].reset_index(drop=True)
+        start_date_n = pd.to_datetime(daterange_df[0]).date()
+    elif n<0:
+        daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < start_date)]
+        daterange_df = daterange_df.iloc[n:, 0].reset_index(drop=True)
+        if daterange_df.empty:
+            start_date_n = pd.to_datetime(start_date).date()
+        else:
+            start_date_n = pd.to_datetime(daterange_df[0]).date()
+    else:
+        start_date_n =start_date
+    return start_date_n
 
 def get_process_num():
     """
@@ -110,6 +129,14 @@ def get_code_group(process_num, code_list):
 
     return code_group
 
+def get_fund_list():
+    # 东方财富网-天天基金网-基金数据-所有基金的基本信息数据
+    df = ak.fund_name_em()
+    # 筛选股票数据，上证和深证股票
+    fund_list = df[['基金代码', '基金简称']].values
+    return fund_list
+    # 返回基金列表
+
 def get_industry_plate_group(process_num):
     """
     获取代码分组，用于多进程计算，每个进程处理一组股票
@@ -118,13 +145,13 @@ def get_industry_plate_group(process_num):
     :return: 分组后的股票代码列表，列表的每个元素为一组股票代码的列表
     """
     stock_board_industry_name_em_df = ak.stock_board_industry_name_em()
-    industry_plates = stock_board_industry_name_em_df['板块名称']
+    industry_plates = stock_board_industry_name_em_df[['板块代码','板块名称']].values
     code_group = [[] for i in range(process_num)]
 
     # 按余数为每个分组分配股票
     for index, industry_plate in enumerate(industry_plates):
         # code_group[index % process_num].append([stock_code])
-        code_group[index % process_num].append(industry_plate)
+        code_group[index % process_num].append([industry_plate[0],industry_plate[1]])
     return code_group
 
 def get_concept_plate_group(process_num):
@@ -135,11 +162,11 @@ def get_concept_plate_group(process_num):
     :return: 分组后的股票代码列表，列表的每个元素为一组股票代码的列表
     """
     stock_board_concept_name_em_df = ak.stock_board_concept_name_em()
-    concept_plates = stock_board_concept_name_em_df['板块名称']
+    concept_plates = stock_board_concept_name_em_df[['板块代码','板块名称']].values
     code_group = [[] for i in range(process_num)]
     # 按余数为每个分组分配股票
     for index, concept_plate in enumerate(concept_plates):
-        code_group[index % process_num].append(concept_plate)
+        code_group[index % process_num].append([concept_plate[0],concept_plate[1]])
     return code_group
 
 def multiprocessing_func(func, args):
@@ -165,6 +192,9 @@ def multiprocessing_func(func, args):
 
 if __name__ == '__main__':
     start_time = time.time()
-
+    a = get_trade_date_nd('20230208', -3)
+    b = get_trade_date_nd('20230208', 4)
+    c = get_trade_date_nd('20230208', 0)
+    print(a,b,c)
     end_time = time.time()
     print('{}：程序运行时间：{}s，{}分钟'.format(os.path.basename(__file__),end_time - start_time, (end_time - start_time) / 60))

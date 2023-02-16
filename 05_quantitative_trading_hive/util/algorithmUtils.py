@@ -76,11 +76,10 @@ def rps(df,n):
 
 def plate_rps(df,n):
     n = abs(n)-1
-    df['lag'] = df['close_price'] / df.groupby('plate_name')['close_price'].shift(n)  # 分区內向上平移一个单位
+    df['lag'] = df['close_price'] / df.groupby('plate_code')['close_price'].shift(n)  # 分区內向上平移一个单位
     # 如果分组只有一个记录则数据为na
     df['rps'] = df.groupby('trade_date')['lag'].rank(method='min') / df.groupby('trade_date')['lag'].transform('count') * 100
     return df['rps']
-
 
 
 def test_xxx():

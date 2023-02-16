@@ -41,6 +41,8 @@ def get_data():
                        t1.rps_10d,
                        t1.rps_20d,
                        t1.rps_50d,
+                       t1.rps_120d,
+                       t1.rps_250d,
                        t1.rs,
                        t1.rsi_6d,
                        t1.rsi_12d,

@@ -6,63 +6,92 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>927</width>
-    <height>700</height>
+    <width>800</width>
+    <height>600</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout_4">
-    <property name="leftMargin">
-     <number>0</number>
-    </property>
-    <property name="bottomMargin">
-     <number>0</number>
-    </property>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
+   <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>3</number>
+       <number>5</number>
       </property>
-      <widget class="QWidget" name="the_market_tab">
+      <widget class="QWidget" name="marketTab">
        <attribute name="title">
         <string>大盘</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_5">
-        <item>
-         <layout class="QVBoxLayout" name="theMarketLayout"/>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="industry_tab">
-       <attribute name="title">
-        <string>  行业  </string>
-       </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
-         <layout class="QVBoxLayout" name="industryLayout"/>
+         <layout class="QVBoxLayout" name="marketLayout"/>
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="stock_tab">
+      <widget class="QWidget" name="plateTab">
        <attribute name="title">
-        <string>  个股  </string>
+        <string>板块</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_2">
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <layout class="QVBoxLayout" name="plateLayout"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="stockTab">
+       <attribute name="title">
+        <string>个股</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
          <layout class="QVBoxLayout" name="stockLayout"/>
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="back_test_tab">
+      <widget class="QWidget" name="groupTab">
        <attribute name="title">
-        <string>  回测  </string>
+        <string>自选分组</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout">
+       <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
         <item>
-         <layout class="QVBoxLayout" name="backTestLayout"/>
+         <layout class="QVBoxLayout" name="groupLayout"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="strategyTab">
+       <attribute name="title">
+        <string>策略个股</string>
+       </attribute>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <layout class="QVBoxLayout" name="strategyLayout"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="btTab">
+       <attribute name="title">
+        <string>回测</string>
+       </attribute>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <layout class="QVBoxLayout" name="btLayout"/>
         </item>
        </layout>
       </widget>

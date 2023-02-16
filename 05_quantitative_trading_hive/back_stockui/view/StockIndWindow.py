@@ -9,7 +9,7 @@ from qtpy import uic
 from back_stockui.UiDataUtils import *
 from PyQt5 import QtWidgets
 from back_stockui.view.figurecanvas import StockFigureCanvas
-from back_stockui.ComboCheckBox import ComboCheckBox
+from back_stockui.widgets.ComboCheckBox import ComboCheckBox
 
 
 class StockIndWindow(QtWidgets.QMainWindow,UiDataUtils):
@@ -27,10 +27,9 @@ class StockIndWindow(QtWidgets.QMainWindow,UiDataUtils):
         self._stock_end_date = ''
         self._stock_data = None
         # rps红值提醒
-        self.stock_rps_list = ['rps_10d', 'rps_20d', 'rps_50d']
+        self.stock_rps_list = ['rps_5d', 'rps_10d', 'rps_20d']
         self._block_name = ''
         self._block_data = None
-        self.block_warning_value = 90
 
         self._init_view()
         self._init_listener()
@@ -38,22 +37,19 @@ class StockIndWindow(QtWidgets.QMainWindow,UiDataUtils):
     def _init_view(self):
 
         self.ui = uic.loadUi(os.path.join(curPath, 'designer/main_stock_indicator.ui'), self)
-
         # 添加rps勾选布局
         self.combo = ComboCheckBox(['rps_5d', 'rps_10d', 'rps_20d', 'rps_50d'])
         self.ui.layout_rps.addWidget(self.combo)
         self.combo.set_select(self.stock_rps_list)
 
-        self.ui.dte_end.setDate(trade_date(QDate.currentDate()))
-        end_date = self.ui.dte_end.date()
-        # 开始时间为当前时间前推一年
-        start_date = end_date.addDays(-365)
-        self.ui.dte_start.setDate(start_date)
-        self._stock_start_date = start_date.toString('yyyy-MM-dd')
-        self._stock_end_date = end_date.toString('yyyy-MM-dd')
+        self.ui.dte_end.setDate(self.q_end_date)
+        self.ui.dte_start.setDate(self.q_start_date)
+        self._stock_start_date = str(self.start_date)
+        self._stock_end_date = str(self.end_date)
         # k线画布
         self.graphic_scene = QGraphicsScene()
 
+    # == == == == == == == == == == == == == == == == == == == == 事件或小部件显示 == == == == == == == == == == == == == == == == == == == ==
     def _init_listener(self):
         self.ui.dte_start.dateChanged.connect(self._start_date_change)
         self.ui.dte_end.dateChanged.connect(self._end_date_change)
@@ -102,17 +98,14 @@ class StockIndWindow(QtWidgets.QMainWindow,UiDataUtils):
 
         # 是否需要重新加载数据
         if again_load_data:
-            df = self.get_dwd_stock_quotes_stand_di(self._stock_code, self._stock_start_date, self._stock_end_date)
+            df = self.query_stock(self._stock_code, self._stock_start_date, self._stock_end_date)
             self._stock_data = df
 
             # 加载板块rps指标
-            use_col = ['name', 'rps05', 'rps10', 'rps20', 'rps50', 'rps120', 'rps250']
-            self.get_plate(date)
-            self._block_data = self.get_plate_range(self._block_name, self._stock_start_date, self._stock_end_date)
-
+            self._block_data = self.query_plate_range(self._block_code, self._stock_start_date, self._stock_end_date)
 
         self.canvas.set_data(self._stock_data, self._block_data)
-        self.canvas.kline(self.stock_rps_list, 87, self.block_warning_value)
+        self.canvas.kline(self.stock_rps_list, 87)
 
         # 创建一个QGraphicsScene
         self.graphic_scene.addWidget(self.canvas)
@@ -122,21 +115,20 @@ class StockIndWindow(QtWidgets.QMainWindow,UiDataUtils):
         self.ui.graphicsView.show()
         self.show()
 
-    def show_with_data(self, s, block_name, block_warning_value=90):
+    def show_with_data(self, s, block_name):
         """
         双击个股，刷新
         :param s:
         :param block_warning_value: 板块的提示值
         :return:
         """
-        code = s['stock_code']
+        code = s['code']
         if self._stock_code == code:
             return
 
-        self.block_warning_value = block_warning_value
         self._block_name = block_name
         self._stock_code = code
-        name = s['plate_name']
+        name = s['name']
 
         self._refresh_kline_canvas()
         self.setWindowTitle(name)

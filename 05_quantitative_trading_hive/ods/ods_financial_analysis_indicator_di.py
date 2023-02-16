@@ -19,12 +19,12 @@ curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
 from util.DBUtils import hiveUtil
-from util.CommonUtils import get_code_group, get_code_list, get_spark
+from util.CommonUtils import get_code_group, get_code_list, get_spark, str_pre
+
 
 # 这接口太脆了 不能开太多进程
 def multiprocess_run(code_list, start_date, hive_engine, process_num = 2):
     appName = os.path.basename(__file__)
-    # 本地模式
     spark = get_spark(appName)
     code_group = get_code_group(process_num, code_list)
     result_list = []
@@ -95,12 +95,13 @@ def get_data(ak_code, ak_name,start_date):
             df.drop_duplicates(subset=['日期'], keep='last', inplace=True)
             df = df[pd.to_datetime(df['日期']) >= pd.to_datetime(start_date)]
 
-            if ak_code.startswith('6'):
-                df['stock_code'] = 'sh' + ak_code
-            elif ak_code.startswith('8') or ak_code.startswith('4') == True:
-                df['stock_code'] = 'bj' + ak_code
-            else:
-                df['stock_code'] = 'sz' + ak_code
+            df['stock_code'] = str_pre(ak_code)
+            # if ak_code.startswith('6'):
+            #     df['stock_code'] = 'sh' + ak_code
+            # elif ak_code.startswith('8') or ak_code.startswith('4') == True:
+            #     df['stock_code'] = 'bj' + ak_code
+            # else:
+            #     df['stock_code'] = 'sz' + ak_code
 
             df['stock_name'] = ak_name
             df['日期'] = pd.to_datetime(df['日期'])

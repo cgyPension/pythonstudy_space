@@ -26,7 +26,6 @@ from util.CommonUtils import get_process_num, get_industry_plate_group, str_pre,
 
 def multiprocess_run(start_date,process_num):
     appName = os.path.basename(__file__)
-    # 本地模式
     spark = get_spark(appName)
 
     industry_plate_group = get_industry_plate_group(process_num)
@@ -60,17 +59,19 @@ def multiprocess_run(start_date,process_num):
 
 def get_group_data(start_date,industry_plates, i, n):
     pd_df = pd.DataFrame()
-    for industry_plate in industry_plates:
+    for industry in industry_plates:
+        industry_plate_code = industry[0]
+        industry_plate = industry[1]
         # print('ods_dc_stock_board_industry_cons_df：{}启动,父进程为{}：第{}组/共{}组)正在处理...'.format(os.getpid(), os.getppid(), i, n))
 
-        df = get_data(start_date,industry_plate)
+        df = get_data(start_date,industry_plate_code,industry_plate)
         if df.empty:
             continue
         pd_df = pd_df.append(df)
     return pd_df
 
 
-def get_data(start_date,industry_plate):
+def get_data(start_date,industry_plate_code,industry_plate):
     """
     获取指定日期的A股数据写入mysql
 
@@ -90,12 +91,13 @@ def get_data(start_date,industry_plate):
             df['trade_date'] = pd.to_datetime(start_date).date()
 
             df['stock_code'] = df['代码'].apply(str_pre)
+            df['industry_plate_code'] = industry_plate_code
             df['industry_plate'] = industry_plate
             df['update_time'] = datetime.datetime.now()
             df['td'] = df['trade_date']
 
             df.rename(columns={'名称': 'stock_name'}, inplace=True)
-            df = df[['trade_date','stock_code','stock_name','industry_plate','update_time','td']]
+            df = df[['trade_date','stock_code','stock_name','industry_plate_code','industry_plate','update_time','td']]
             # MySQL无法处理nan
             df = df.replace({np.nan: None})
             return df
@@ -103,12 +105,13 @@ def get_data(start_date,industry_plate):
             print(e)
     return pd.DataFrame
 
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_industry_plate_cons_di.py
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_industry_plate_cons_di.py
 # nohup ods_dc_stock_industry_plate_cons_di.py >> my.log 2>&1 &
 # python ods_dc_stock_industry_plate_cons_di.py
 if __name__ == '__main__':
     process_num = get_process_num()
     start_date = date.today()
+    # start_date = '2023-01-31'
     start_time = time.time()
     multiprocess_run(start_date,process_num)
     end_time = time.time()

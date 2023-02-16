@@ -2,7 +2,6 @@ import os
 import sys
 # 在linux会识别不了包 所以要加临时搜索目录
 import time
-
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)

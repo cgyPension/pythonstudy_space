@@ -16,7 +16,8 @@ pd.options.display.max_columns=None
 pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
-from util.CommonUtils import get_process_num, get_spark
+from util.CommonUtils import get_process_num, get_spark, get_trade_date_nd
+
 
 def get_data(start_date, end_date):
     try:
@@ -27,20 +28,9 @@ def get_data(start_date, end_date):
         end_date = pd.to_datetime(end_date).date()
 
         # 增量 因为ma_60d 要提前60个交易日 那个持股5日后收益要覆盖前5日
-        td_df = ak.tool_trade_date_hist_sina()
-        daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < pd.to_datetime(start_date).date())]
-        daterange_75 = daterange_df.iloc[-75:, 0].reset_index(drop=True)
-        if daterange_75.empty:
-            start_date_75 = pd.to_datetime(start_date).date()
-        else:
-            start_date_75 = pd.to_datetime(daterange_75[0]).date()
-
-        daterange_10 = daterange_df.iloc[-10:, 0].reset_index(drop=True)
-        if daterange_10.empty:
-            start_date_10 = pd.to_datetime(start_date).date()
-        else:
-            start_date_10 = pd.to_datetime(daterange_10[0]).date()
-        
+        # 增量 因为持股5日收益 要提前6个交易日 这里是下一交易日开盘买入 持股两天 在第二天的收盘卖出
+        start_date_75 = get_trade_date_nd(start_date, -75)
+        start_date_10 = get_trade_date_nd(start_date, -10)
 
         spark.sql("""
 with t3 as (
@@ -63,7 +53,7 @@ from stock.ods_stock_lhb_detail_em_di
 where td between '%s' and '%s'
       group by td,trade_date,stock_code
 ),
-plate_1 as (
+tmp_industry_plate as (
 select *
 from (
        select stock_code,
@@ -72,36 +62,6 @@ from (
        from stock.dim_dc_stock_plate_di
          )
 where rk = 1
-),
-tmp_dim_industry_rps as (
-select trade_date,
-       industry_plate,
-       close_price,
-       pr_industry_cp,
-       if((rps_5d >=87 and rps_10d >=87 and rps_20d >=87) or 
-          (rps_5d >=87 and rps_10d >=87 and rps_50d >=87) or 
-          (rps_5d >=87 and rps_20d >=87 and rps_50d >=87) or 
-          (rps_10d >=87 and rps_20d >=87 and rps_50d >=87),1,0) as is_industry_rps
-from(
-     select trade_date,
-            industry_plate,
-            close_price,
-            pr_industry_cp,
-           percent_rank()over(partition by trade_date order by rps_5d asc)*100 as rps_5d,
-           percent_rank()over(partition by trade_date order by rps_10d asc)*100 as rps_10d,
-           percent_rank()over(partition by trade_date order by rps_20d asc)*100 as rps_20d,
-           percent_rank()over(partition by trade_date order by rps_50d asc)*100 as rps_50d
-     from (select trade_date,
-            industry_plate,
-            close_price,
-            percent_rank()over(partition by trade_date order by change_percent desc)*100 as pr_industry_cp,
-            if(lag(close_price,4)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,4)over(partition by industry_plate order by trade_date)-1)*100) as rps_5d,
-            if(lag(close_price,9)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,9)over(partition by industry_plate order by trade_date)-1)*100) as rps_10d,
-            if(lag(close_price,19)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,19)over(partition by industry_plate order by trade_date)-1)*100) as rps_20d,
-            if(lag(close_price,59)over(partition by industry_plate order by trade_date) is null,null,(close_price/lag(close_price,49)over(partition by industry_plate order by trade_date)-1)*100) as rps_50d
-     from stock.ods_dc_stock_industry_plate_hist_di
-     where td between '%s' and '%s')
-    )
 )
 select t1.trade_date,
        t1.stock_code,
@@ -121,11 +81,9 @@ select t1.trade_date,
        if(lag(t1.close_price,4)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.turnover_rate)over(partition by t1.stock_code order by t1.trade_date rows between 4 preceding and current row)) as turnover_rate_5d,
        if(lag(t1.close_price,9)over(partition by t1.stock_code order by t1.trade_date) is null,null,avg(t1.turnover_rate)over(partition by t1.stock_code order by t1.trade_date rows between 9 preceding and current row)) as turnover_rate_10d,
        t2.total_market_value,
-       plate_1.industry_plate,
+       tmp_industry_plate.industry_plate,
        plate_2.concept_plates,
-       tmp_dim_industry_rps.pr_industry_cp,
-       tmp_dim_industry_rps.is_industry_rps,
-       plate_2.is_concept_rps,
+       plate_2.is_plate_rps_red,
        t2.pe,
        t2.pe_ttm,
        t2.pb,
@@ -166,6 +124,8 @@ select t1.trade_date,
        t9.rps_10d,
        t9.rps_20d,
        t9.rps_50d,
+       t9.rps_120d,
+       t9.rps_250d,
        t9.rs,
        t9.rsi_6d,
        t9.rsi_12d,
@@ -212,17 +172,14 @@ left join stock.dwd_stock_technical_indicators_df t9
        on t1.trade_date = t9.trade_date
             and t1.stock_code = t9.stock_code
             and t9.td between '%s' and '%s'
-left join plate_1
-     on t1.stock_code = plate_1.stock_code
+left join tmp_industry_plate
+     on t1.stock_code = tmp_industry_plate.stock_code
 left join stock.dim_dc_stock_plate_di plate_2
         on t1.trade_date = plate_2.trade_date
         and t1.stock_code = plate_2.stock_code
         and plate_2.td between '%s' and '%s'
-left join tmp_dim_industry_rps
-     on t1.trade_date = tmp_dim_industry_rps.trade_date
-        and plate_1.industry_plate = tmp_dim_industry_rps.industry_plate
 where t1.td between '%s' and '%s'
-        """% (start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date)).createOrReplaceTempView('tmp_dwd_01')
+        """% (start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date,start_date_75,end_date)).createOrReplaceTempView('tmp_dwd_01')
 
         spark.sql("""
 --因为股票交易日不连续，不能用日期等差的方式算连续
@@ -285,8 +242,7 @@ select t1.*,
        if((t1.rps_5d >=87 and t1.rps_10d >=87 and t1.rps_20d >=87) or 
           (t1.rps_5d >=87 and t1.rps_10d >=87 and t1.rps_50d >=87) or 
           (t1.rps_5d >=87 and t1.rps_20d >=87 and t1.rps_50d >=87) or 
-          (t1.rps_10d >=87 and t1.rps_20d >=87 and t1.rps_50d >=87),1,0) as is_stock_rps,
-       if(t1.pr_industry_cp <=10,1,0) as is_pr_industry_cp_10,
+          (t1.rps_10d >=87 and t1.rps_20d >=87 and t1.rps_50d >=87),1,0) as is_stock_rps_red,
        if(t1.interprets rlike '买',1,0) as is_lhb_buy,
        if(t1.interprets rlike '卖',1,0) as is_lhb_sell,
        if(t1.lhb_num_60d>0,1,0) is_lhb_60d,
@@ -337,6 +293,8 @@ select t1.trade_date,
        t1.rps_10d,
        t1.rps_20d,
        t1.rps_50d,
+       t1.rps_120d,
+       t1.rps_250d,
        t1.rs,
        t1.rsi_6d,
        t1.rsi_12d,
@@ -353,10 +311,8 @@ select t1.trade_date,
        concat_ws(',',if(t1.is_min_market_value=1,'小市值',null),
                      if(t1.is_mid_market_value=1,'中市值',null),
                      if(t1.is_max_market_value=1,'大市值',null),
-                     if(t1.is_stock_rps=1,'个股rps>=87',null),
-                     if(t1.is_industry_rps=1,'行业rps>=87',null),
-                     if(t1.is_concept_rps=1,'概念rps>=87',null),
-                     if(t1.is_pr_industry_cp_10=1,'行业板块涨跌幅前10%%-',null),
+                     if(t1.is_stock_rps_red=1,'个股rps>=87',null),
+                     if(t1.is_plate_rps_red=1,'板块rps>=90',null),
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_lhb_60d=1,'最近60天龙虎榜',null),
@@ -375,10 +331,8 @@ select t1.trade_date,
         nvl(t1.is_min_market_value,0)+
         nvl(t1.is_mid_market_value,0)+
         nvl(t1.is_max_market_value,0)+
-        nvl(t1.is_stock_rps,0)+
-        nvl(t1.is_industry_rps,0)+
-        nvl(t1.is_concept_rps,0)+
-        nvl(t1.is_pr_industry_cp_10,0)+
+        nvl(t1.is_stock_rps_red,0)+
+        nvl(t1.is_plate_rps_red,0)+
         nvl(t1.is_lhb_buy,0)+
         nvl(t1.is_lhb_sell,0)+
         nvl(t1.is_lhb_60d,0)+
@@ -393,10 +347,8 @@ select t1.trade_date,
         nvl(t1.is_rsi_6_bigger_12,0)+
         nvl(t1.is_rsi_6_smaller_12,0)
         ) as stock_label_num,
-       concat_ws(',',if(t1.is_industry_rps=1,'行业rps>=87',null),
-                     if(t1.is_stock_rps=1,'个股rps>=87',null),
-                     if(t1.is_concept_rps=1,'概念rps>=87',null),
-                     if(t1.is_pr_industry_cp_10=1,'行业板块涨跌幅前10%%-',null),
+       concat_ws(',',if(t1.is_plate_rps_red=1,'板块rps>=90',null),
+                     if(t1.is_stock_rps_red=1,'个股rps>=87',null),
                      if(t1.is_lhb_buy=1,'当天龙虎榜_买',null),
                      if(t1.is_lhb_sell=1,'当天龙虎榜_卖-',null),
                      if(t1.is_pre_profit_increase=1,'预盈预增',null),
@@ -407,10 +359,8 @@ select t1.trade_date,
                      if(t1.is_rsi_6_smaller_12=1,'rsi_6_12死叉-',null)
        ) as sub_factor_names,
        (
-        nvl(t1.is_industry_rps,0)+
-        nvl(t1.is_stock_rps,0)+
-        nvl(t1.is_concept_rps,0)-
-        nvl(t1.is_pr_industry_cp_10,0)+
+        nvl(t1.is_plate_rps_red,0)+
+        nvl(t1.is_stock_rps_red,0)+
         nvl(t1.is_lhb_buy,0)-
         nvl(t1.is_lhb_sell,0)-
         nvl(t1.is_pre_profit_increase,0)-

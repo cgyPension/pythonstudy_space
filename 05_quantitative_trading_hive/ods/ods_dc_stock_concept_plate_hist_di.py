@@ -25,7 +25,6 @@ from util.CommonUtils import get_process_num, get_concept_plate_group, get_spark
 
 def multiprocess_run(start_date, end_date,process_num):
     appName = os.path.basename(__file__)
-    # 本地模式
     spark = get_spark(appName)
 
     concept_plate_group = get_concept_plate_group(process_num)
@@ -58,16 +57,18 @@ def multiprocess_run(start_date, end_date,process_num):
 
 def get_group_data(concept_plates, start_date, end_date, i, n):
     pd_df = pd.DataFrame()
-    for concept_plate in concept_plates:
+    for concept in concept_plates:
+        concept_plate_code = concept[0]
+        concept_plate = concept[1]
         # print('ods_dc_stock_concept_plate_df：{}启动,父进程为{}：第{}组/共{}组)正在处理...'.format(os.getpid(), os.getppid(), i, n))
-        df = get_data(concept_plate, start_date, end_date)
+        df = get_data(concept_plate_code,concept_plate, start_date, end_date)
         if df.empty:
             continue
         pd_df = pd_df.append(df)
     return pd_df
 
 
-def get_data(concept_plate, start_date, end_date):
+def get_data(concept_plate_code,concept_plate, start_date, end_date):
     """
     获取指定日期的A股数据写入mysql
 
@@ -86,13 +87,14 @@ def get_data(concept_plate, start_date, end_date):
             df.drop_duplicates(subset=['日期'], keep='last', inplace=True)
 
             df['trade_date'] = df['日期'].apply(lambda x: pd.to_datetime(x).date())
+            df['concept_plate_code'] = concept_plate_code
             df['concept_plate'] = concept_plate
             df['update_time'] = datetime.datetime.now()
             df['td'] = df['trade_date']
 
             df.rename(columns={'开盘': 'open_price', '收盘': 'close_price', '最高': 'high_price','最低': 'low_price', '成交量': 'volume', '成交额': 'turnover', '振幅': 'amplitude','涨跌幅': 'change_percent',
                                '涨跌额': 'change_amount', '换手率': 'turnover_rate'}, inplace=True)
-            df = df[['trade_date', 'concept_plate', 'open_price', 'close_price', 'high_price', 'low_price', 'change_percent', 'change_amount', 'volume','turnover', 'amplitude','turnover_rate', 'update_time', 'td']]
+            df = df[['trade_date', 'concept_plate_code','concept_plate', 'open_price', 'close_price', 'high_price', 'low_price', 'change_percent', 'change_amount', 'volume','turnover', 'amplitude','turnover_rate', 'update_time', 'td']]
             # MySQL无法处理nan
             df = df.replace({np.nan: None})
             return df

@@ -61,17 +61,19 @@ def multiprocess_run(start_date,process_num):
 
 def get_group_data(start_date,concept_plates, i, n):
     pd_df = pd.DataFrame()
-    for concept_plate in concept_plates:
+    for concept in concept_plates:
+        concept_plate_code = concept[0]
+        concept_plate = concept[1]
         # print('ods_dc_stock_concept_plate_df：{}启动,父进程为{}：第{}组/共{}组)正在处理...'.format(os.getpid(), os.getppid(), i, n))
 
-        df = get_data(start_date,concept_plate)
+        df = get_data(start_date,concept_plate_code,concept_plate)
         if df.empty:
             continue
         pd_df = pd_df.append(df)
     return pd_df
 
 
-def get_data(start_date,concept_plate):
+def get_data(start_date,concept_plate_code,concept_plate):
     """
     获取指定日期的A股数据写入mysql
 
@@ -91,12 +93,13 @@ def get_data(start_date,concept_plate):
             df['trade_date'] = pd.to_datetime(start_date).date()
 
             df['stock_code'] = df['代码'].apply(str_pre)
+            df['concept_plate_code'] = concept_plate_code
             df['concept_plate'] = concept_plate
             df['update_time'] = datetime.datetime.now()
             df['td'] = df['trade_date']
 
             df.rename(columns={'名称': 'stock_name'}, inplace=True)
-            df = df[['trade_date','stock_code','stock_name','concept_plate','update_time','td']]
+            df = df[['trade_date','stock_code','stock_name','concept_plate_code','concept_plate','update_time','td']]
             # MySQL无法处理nan
             df = df.replace({np.nan: None})
             return df
@@ -104,12 +107,13 @@ def get_data(start_date,concept_plate):
             print(e)
     return pd.DataFrame
 
-# spark-submit /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_concept_plate_cons_di.py
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/ods/ods_dc_stock_concept_plate_cons_di.py
 # nohup ods_dc_stock_concept_plate_cons_di.py >> my.log 2>&1 &
 # python ods_dc_stock_concept_plate_cons_di.py
 if __name__ == '__main__':
     process_num = get_process_num()
     start_date = date.today()
+    # start_date = '2023-01-31'
     start_time = time.time()
     multiprocess_run(start_date,process_num)
     end_time = time.time()

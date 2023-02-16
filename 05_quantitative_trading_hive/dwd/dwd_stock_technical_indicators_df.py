@@ -71,6 +71,8 @@ order by trade_date
     pd_df['rps_10d'] = rps(pd_df, 10)
     pd_df['rps_20d'] = rps(pd_df, 20)
     pd_df['rps_50d'] = rps(pd_df, 50)
+    pd_df['rps_120d'] = rps(pd_df, 120)
+    pd_df['rps_250d'] = rps(pd_df, 250)
 
     pd_df['rsi_6d'] = pd_df.groupby('stock_code',group_keys=False).apply(lambda x: ta.RSI(x['close_price'],6))
     pd_df['rsi_12d'] = pd_df.groupby('stock_code',group_keys=False).apply(lambda x: ta.RSI(x['close_price'],12))
@@ -86,7 +88,7 @@ order by trade_date
 
     pd_df['update_time'] = datetime.now()
     pd_df['td'] = pd_df['trade_date']
-    pd_df = pd_df[['trade_date', 'stock_code', 'stock_name', 'rps_5d','rps_10d','rps_20d','rps_50d','rs','rsi_6d', 'rsi_12d','ma_5d','ma_10d', 'ma_20d', 'ma_50d', 'ma_120d','ma_150d','ma_200d','ma_250d','high_price_250d','low_price_250d','update_time', 'td']]
+    pd_df = pd_df[['trade_date', 'stock_code', 'stock_name', 'rps_5d','rps_10d','rps_20d','rps_50d','rps_120d','rps_250d','rs','rsi_6d', 'rsi_12d','ma_5d','ma_10d', 'ma_20d', 'ma_50d', 'ma_120d','ma_150d','ma_200d','ma_250d','high_price_250d','low_price_250d','update_time', 'td']]
     spark_df = spark.createDataFrame(pd_df)
     spark_df.repartition(1).write.insertInto('stock.dwd_stock_technical_indicators_df', overwrite=True)
     spark.stop()

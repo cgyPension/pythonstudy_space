@@ -24,7 +24,6 @@ from util.CommonUtils import str_pre, get_spark
 
 def get_data(start_date, end_date):
    appName = os.path.basename(__file__)
-   # 本地模式
    spark = get_spark(appName)
 
    # 还没到下一期时候要重跑上一期  数据会有公告日期超过 接口的枚举日期

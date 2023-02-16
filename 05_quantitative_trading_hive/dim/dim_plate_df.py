@@ -31,6 +31,7 @@ def get_data():
     spark_df = spark.sql("""
             with t1 as (
                         select trade_date,
+                               industry_plate_code as plate_code,
                                industry_plate as plate_name,
                                open_price,
                                close_price,
@@ -47,6 +48,7 @@ def get_data():
                         from stock.ods_dc_stock_industry_plate_hist_di
                         union all
                         select trade_date,
+                               concept_plate_code as plate_code,
                                concept_plate as plate_name,
                                open_price,
                                close_price,
@@ -72,21 +74,63 @@ def get_data():
     pd_df['rps_20d'] = plate_rps(pd_df, 20)
     pd_df['rps_50d'] = plate_rps(pd_df, 50)
 
+    pd_df['ma_5d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=5))
+    pd_df['ma_10d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=10))
+    pd_df['ma_20d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=20))
+    pd_df['ma_50d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=50))
+    pd_df['ma_120d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=120))
+    pd_df['ma_150d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=150))
+    pd_df['ma_200d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=200))
+    pd_df['ma_250d'] = pd_df.groupby('plate_code',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=250))
 
-    pd_df['ma_5d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=5))
-    pd_df['ma_10d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=10))
-    pd_df['ma_20d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=20))
-    pd_df['ma_50d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=50))
-    pd_df['ma_120d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=120))
-    pd_df['ma_150d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=150))
-    pd_df['ma_200d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=200))
-    pd_df['ma_250d'] = pd_df.groupby('plate_name',group_keys=False).apply(lambda x: ta.MA(x['close_price'],timeperiod=250))
-
-    pd_df['update_time'] = datetime.now()
-    pd_df['td'] = pd_df['trade_date']
-    pd_df = pd_df[['trade_date','plate_name','open_price','close_price','high_price','low_price','change_percent','change_amount','volume','turnover','amplitude','turnover_rate','rps_5d','rps_10d','rps_15d','rps_20d','rps_50d','ma_5d','ma_10d','ma_20d','ma_50d','ma_120d','ma_150d','ma_200d','ma_250d','high_price_250d','low_price_250d','update_time','td']]
-    spark_df = spark.createDataFrame(pd_df)
-    spark_df.repartition(1).write.insertInto('stock.dim_plate_df', overwrite=True)
+    spark.createDataFrame(pd_df).createOrReplaceTempView('tmp_dim_plate')
+    r_df = spark.sql("""
+            with t1 as (
+             select *,
+                    if(sort_array(array(rps_5d,rps_10d,rps_15d,rps_20d))[1]>=90,1,0) as rps_red
+             from tmp_dim_plate
+             ),
+             t2 as (
+             select *,
+                    --20日内rps首次三线翻红
+                   if(rps_red=1 and sum(rps_red)over(partition by plate_code order by trade_date rows between 19 preceding and current row)=1,1,0) as is_rps_red
+             from t1
+             )
+             select trade_date,
+                    plate_code,
+                    plate_name,
+                    open_price,
+                    close_price,
+                    high_price,
+                    low_price,
+                    change_percent,
+                    change_amount,
+                    volume,
+                    turnover,
+                    amplitude,
+                    turnover_rate,
+                    rps_5d,
+                    rps_10d,
+                    rps_15d,
+                    rps_20d,
+                    rps_50d,
+                    is_rps_red,
+                    ma_5d,
+                    ma_10d,
+                    ma_20d,
+                    ma_50d,
+                    ma_120d,
+                    ma_150d,
+                    ma_200d,
+                    ma_250d,
+                    high_price_250d,
+                    low_price_250d,
+                    current_timestamp() as update_time,
+                    trade_date as td
+             from t2
+             order by trade_date,is_rps_red desc,(rps_5d+rps_10d+rps_15d+rps_20d) desc,change_percent desc
+        """)
+    r_df.repartition(1).write.insertInto('stock.dim_plate_df', overwrite=True)
     spark.stop()
     print('{}：执行完毕！！！'.format(appName))
 

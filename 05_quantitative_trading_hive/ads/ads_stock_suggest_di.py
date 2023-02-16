@@ -19,7 +19,7 @@ pd.options.display.max_columns=None
 pd.options.display.expand_frame_repr=False
 pd.set_option('display.unicode.ambiguous_as_wide', True)
 pd.set_option('display.unicode.east_asian_width', True)
-from util.CommonUtils import get_process_num, get_spark
+from util.CommonUtils import get_process_num, get_spark, get_trade_date_nd
 
 
 # bigquant经常是持股两天 第一天集合竞价开盘买，第二天收盘卖
@@ -27,16 +27,9 @@ def get_data(start_date, end_date):
    appName = os.path.basename(__file__)
    spark = get_spark(appName)
 
-   s_date = '20210101'
    start_date,end_date = pd.to_datetime(start_date).date(),pd.to_datetime(end_date).date()
    # 增量 因为持股5日收益 要提前6个交易日 这里是下一交易日开盘买入 持股两天 在第二天的收盘卖出
-   td_df = ak.tool_trade_date_hist_sina()
-   daterange_df = td_df[(td_df.trade_date >= pd.to_datetime(s_date).date()) & (td_df.trade_date < start_date)]
-   daterange_df = daterange_df.iloc[-7:, 0].reset_index(drop=True)
-   if daterange_df.empty:
-       start_date = pd.to_datetime(start_date).date()
-   else:
-       start_date = pd.to_datetime(daterange_df[0]).date()
+   start_date = get_trade_date_nd(start_date,-7)
 
    # todo ====================================================================  f小市值+市盈率TTM+换手率+主观因子  ==================================================================
    spark.sql(

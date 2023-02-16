@@ -32,9 +32,7 @@ insert into dim_stock_label VALUES
        ('预亏预减-','概率板标签',1,null,current_timestamp()),
 
        ('个股rps>=87','行业板块三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
-       ('行业rps>=87','行业板块三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
-       ('概念rps>=87','概念板块三线欧奈尔rps>=87',1,null,current_timestamp()),
-       ('个股rps>=87','个股三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
+       ('板块rps>=87','行业板块三线欧奈尔rps>=87',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
        ('个股rps_10_20金叉','rps_10d>rps_20d and 前一日rps_10d<rps_20d',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
        ('个股rps_10_20死叉-','rps_10d<rps_20d and 前一日rps_10d>rps_20d',1,'(收盘价-N日前的收盘价)/N日前的收盘价  排序再归一化 即百分比排序',current_timestamp()),
 
@@ -99,6 +97,7 @@ drop table if exists dim_plate_df;
 create table if not exists dim_plate_df
 (
     trade_date     date comment '交易日期',
+    plate_code string comment '板块代码',
     plate_name string comment '板块名称',
     open_price     decimal(20, 4) comment '开盘价',
     close_price    decimal(20, 4) comment '收盘价',
@@ -115,6 +114,7 @@ create table if not exists dim_plate_df
     rps_15d    decimal(20, 15) comment '欧奈尔rps_15d',
     rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
     rps_50d    decimal(20, 15) comment '欧奈尔rps_50d',
+    is_rps_red  int comment '20日内rps首次三线翻红 1:是',
     ma_5d                     decimal(20, 4) comment '5日均线',
     ma_10d                    decimal(20, 4) comment '10日均线',
     ma_20d                    decimal(20, 4) comment '20日均线',
@@ -151,12 +151,7 @@ create table if not exists dim_dc_stock_plate_di
     stock_name     string comment '股票名称',
     industry_plate string comment '行业板块',
     concept_plates string comment '概念板块 ,拼接',
-    pr_industry_cp decimal(20, 15) comment '行业涨跌幅排名 desc',
-    rps_5d    decimal(20, 15) comment '欧奈尔rps_5d',
-    rps_10d    decimal(20, 15) comment '欧奈尔rps_10d',
-    rps_20d    decimal(20, 15) comment '欧奈尔rps_20d',
-    rps_50d    decimal(20, 15) comment '欧奈尔rps_50d',
-    is_concept_rps int comment '是否概念三线欧奈尔rps>=90',
+    is_plate_rps_red int comment '20日内板块rps首次三线翻红 1:是',
     update_time    timestamp comment '更新时间'
 ) comment ' 东方财富-成分股板块维表'
     partitioned by (td date comment '分区_交易日期')

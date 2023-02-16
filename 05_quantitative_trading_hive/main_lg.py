@@ -8,14 +8,13 @@ from dim import dim_plate_df
 curPath = os.path.abspath(os.path.dirname(__file__))
 rootPath = os.path.split(curPath)[0]
 sys.path.append(rootPath)
-from ads import ads_stock_suggest_di
+from ads import ads_stock_suggest_di, export_clickhouse
 from dwd import dwd_stock_quotes_di, dwd_stock_zt_di, dwd_stock_strong_di, dwd_stock_technical_indicators_df, \
     dwd_stock_quotes_stand_di
 from ods import ods_lg_indicator_di
 from util.CommonUtils import get_code_list, get_process_num
 from util.DBUtils import hiveUtil
 from util.stockImportExportUtils import export_stock_zt_hive
-
 
 def task_update_daily():
     start_date = date.today().strftime('%Y%m%d')
@@ -47,36 +46,7 @@ def task_update_daily():
     start_time = time.time()
 
     # 财务 这个也跑得慢全部代码遍历对比日期 要跑20分钟可以另外单独跑 有时候会漏数据 总市值不能为空
-    ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, 5)
-
-    # 前复权 一般季度时间后一周内会修改旧数据 这时候要全量重跑这个ods
-    # 如果进行价值投资，建议采用后复权 适合回测
-    # 如果进行技术分析，最好用前复权 适合指导实盘 会引入了未来函数？
-    # ods_dc_stock_quotes_di.multiprocess_run(code_list, period, start_date, end_date, adjust,hive_engine,process_num)
-    # 有时候会到了公告日期没有发布
-    # ods_stock_lrb_em_di.get_data(start_date, end_date)
-    # 这个年报全量很慢 平时不能全量跑  20200331", "20200630", "20200930", "20201231" 报告日期才跑
-    # ods_financial_analysis_indicator_di.multiprocess_run(code_list, start_date, hive_engine)
-
-    # 其他
-    # ods_stock_lhb_detail_em_di.get_data(start_date, end_date)
-    # 停复牌8点左右跑 不然有些数据会后补
-    # ods_dc_stock_tfp_di.get_data(start_date, end_date)
-    # ods_trade_date_hist_sina_df.get_data()
-    # ods_stock_zt_pool_di.get_data(start_date, end_date)
-    # ods_stock_strong_pool_di.get_data(start_date, end_date)
-    # ods_stock_hot_rank_wc_di.get_data(start_date, end_date)
-    # ods_dc_index_di.get_data(start_date, end_date)
-
-    # 板块
-    # ods_dc_stock_industry_plate_cons_di.multiprocess_run(start_date, process_num)
-    # ods_dc_stock_concept_plate_cons_di.multiprocess_run(start_date, process_num)
-    # ods_dc_stock_industry_plate_rt_di.get_data(start_date)
-    # ods_dc_stock_concept_plate_rt_di.get_data(start_date)
-    # ods_dc_stock_industry_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
-    # ods_dc_stock_concept_plate_hist_di.multiprocess_run(start_date, end_date,process_num)
-    # dim_plate_df.get_data()
-    # dim_dc_stock_plate_di.get_data(start_date, end_date)
+    ods_lg_indicator_di.multiprocess_run(code_list, start_date, end_date,hive_engine, process_num)
 
     # 这个dwd有先后顺序
     dwd_stock_technical_indicators_df.get_data()
@@ -89,6 +59,7 @@ def task_update_daily():
 
     # ads_stock_suggest_di.get_data(start_date, end_date)
     # ads_strategy_yield_di.get_data()
+    export_clickhouse.get_data(start_date, end_date)
     # export_stock_zt_hive(start_date)
     # nd_codes = ['002689', '002094', '002651', '002264', '002808', '002888', '003040', '002762', '002238', '002766', '003028']
     # export_stock_ndzt_hive(start_date,nd_codes)

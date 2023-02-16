@@ -1,20 +1,62 @@
-# 已知：总体均值3.30kg，样本数量35，样本均值3.42kg，标准差0.40kg。问：样本均值与总体均值是否有差异？
-# 
-# 提出原假设和备择假设：
-# H0: 样本均值与总体均值相等，无差异
-# H1: 样本均值与总体均值不相等，存在差异
-from scipy.stats import ttest_1samp
-from scipy import stats
+import os
+import sys
+curPath = os.path.abspath(os.path.dirname(__file__))
+rootPath = os.path.split(curPath)[0]
+sys.path.append(rootPath)
+import pandas as pd
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+import sys
 
-# 1. 生成均值为3.42，标准差为0.40的样本
-samp = stats.norm.rvs(loc=3.42, scale=0.40, size=35)
-print(f"samp's type is {type(samp)}, size = {len(samp)}, mean = {samp.mean()}, std = {samp.std()}")
-# out: samp's type is <class 'numpy.ndarray'>, size = 35, mean = 3.3751406109024398, std = 0.3993899466032266
+from stockui.PdTable import PdTable
 
-# 2. 第一个参数是样本数据，第二个参数是已知总体均数
-t, p = ttest_1samp(samp, 3.42)
-print(f"t = {t}, p = {p}")
-# t = -1.2655105930679713, p = 0.21429231177437397
 
-# 结论：p = 0.214 > 0.05，表明差异无统计学意义，按 α = 0.05的水准接受H0，
-# 即根据现有的样本信息，尚不能认为样本均值与总体均值存在差异
+class TableView(QTableView):
+    def __init__(self, parent=None):
+        super(TableView, self).__init__(parent)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.setAlternatingRowColors(True)
+        self.setShowGrid(False)
+        self.setSortingEnabled(True)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.horizontalHeader().setStretchLastSection(True)
+        self.horizontalHeader().setHighlightSections(False)
+        self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(22)
+        self.setMouseTracking(True)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setStyleSheet("QTableView{background-color: rgb(250, 250, 250);"
+                           "alternate-background-color: rgb(255, 255, 225);}")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Down:
+            # index = self.currentIndex()
+            # print(index.row())
+            # print(self.model().data(index))
+            print(self.model().index(self.currentIndex().row() + 1, 0).data())
+        super(TableView, self).keyPressEvent(event)
+
+# python /opt/code/pythonstudy_space/05_quantitative_trading_hive/test/222.py
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    # model = QStandardItemModel(4, 2)
+    data = {'性别': ['男', '女', '女', '男', '男'],
+            '姓名': ['小明', '小红', '小芳', '小强', '小美'],
+            '年龄': [30, 21, 25, 24, 29]}
+    df = pd.DataFrame(data, index=['No.1', 'No.2', 'No.3', 'No.4', 'No.5'],
+                      columns=['姓名', '性别', '年龄', '职业'])
+
+    model = PdTable(df)
+    tableView = TableView()
+    tableView.setModel(model)
+    # for row in range(4):
+    #     for column in range(2):
+    #         item = QStandardItem("row %s, column %s" % (row, column))
+    #         model.setItem(row, column, item)
+    tableView.show()
+    sys.exit(app.exec_())
+

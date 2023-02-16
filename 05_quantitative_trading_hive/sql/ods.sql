@@ -30,7 +30,8 @@ create table if not exists ods_dc_stock_concept_plate_cons_di
     trade_date    date comment '交易日期',
     stock_code    string comment '股票代码',
     stock_name    string comment '股票名称',
-    concept_plate string comment '概念板块',
+    concept_plate_code string comment '概念板块代码',
+    concept_plate string comment '概念板块名称',
     update_time   timestamp comment '更新时间'
 ) comment ' 东方财富-沪深板块-概念板块-板块成份股'
     partitioned by (td date comment '分区_交易日期')
@@ -42,7 +43,8 @@ drop table if exists ods_dc_stock_concept_plate_hist_di;
 create table if not exists ods_dc_stock_concept_plate_hist_di
 (
     trade_date     date comment '交易日期',
-    concept_plate  string comment '行业板块名称',
+    concept_plate_code  string comment '概念板块代码',
+    concept_plate  string comment '概念板块名称',
     open_price     decimal(20, 4) comment '开盘价',
     close_price    decimal(20, 4) comment '收盘价',
     high_price     decimal(20, 4) comment '最高价',
@@ -55,20 +57,6 @@ create table if not exists ods_dc_stock_concept_plate_hist_di
     turnover_rate  decimal(20, 4) comment '换手率',
     update_time                  timestamp comment '更新时间'
 ) comment '东方财富-沪深板块-概念板块-历史行情数据'
-    partitioned by (td date comment '分区_交易日期')
-    row format delimited fields terminated by '\t'
-    stored as orc
-    tblproperties ('orc.compress' = 'snappy');
-
-drop table if exists ods_dc_stock_industry_plate_cons_di;
-create table if not exists ods_dc_stock_industry_plate_cons_di
-(
-    trade_date    date comment '交易日期',
-    stock_code     string comment '股票代码',
-    stock_name     string comment '股票名称',
-    industry_plate string comment '行业板块',
-    update_time    timestamp comment '更新时间'
-) comment '东方财富-沪深板块-行业板块-板块成份股'
     partitioned by (td date comment '分区_交易日期')
     row format delimited fields terminated by '\t'
     stored as orc
@@ -96,11 +84,26 @@ create table if not exists ods_dc_stock_industry_plate_rt_di
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
 
+drop table if exists ods_dc_stock_industry_plate_cons_di;
+create table if not exists ods_dc_stock_industry_plate_cons_di
+(
+    trade_date    date comment '交易日期',
+    stock_code     string comment '股票代码',
+    stock_name     string comment '股票名称',
+    industry_plate_code string comment '行业板块代码',
+    industry_plate string comment '行业板块名称',
+    update_time    timestamp comment '更新时间'
+) comment '东方财富-沪深板块-行业板块-板块成份股'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
 
 drop table if exists ods_dc_stock_industry_plate_hist_di;
 create table if not exists ods_dc_stock_industry_plate_hist_di
 (
     trade_date     date comment '交易日期',
+    industry_plate_code string comment '行业板块代码',
     industry_plate string comment '行业板块名称',
     open_price     decimal(20, 4) comment '开盘价',
     close_price    decimal(20, 4) comment '收盘价',
@@ -356,3 +359,62 @@ create table if not exists ods_dc_index_di
     row format delimited fields terminated by '\t'
     stored as orc
     tblproperties ('orc.compress' = 'snappy');
+
+drop table if exists ods_stock_hsgt_stock_di;
+create table if not exists ods_stock_hsgt_stock_di
+(
+    trade_date     date comment '交易日期',
+    stock_code     string comment '股票代码',
+    stock_name     string comment '股票名称',
+    change_percent decimal(20, 4) comment '涨跌幅',
+    hold_stock_nums  decimal(20, 4) comment '持股数量(万股)',
+    hold_market  decimal(20, 4) comment '持股市值(万元)',
+    hold_stock_nums_rate  decimal(20, 4) comment '持股数量占发行股百分比',
+    hold_market_1d decimal(20, 4) comment '持股市值变化-1日',
+    hold_market_5d  decimal(20, 4) comment '持股市值变化-5日',
+    hold_market_10d  decimal(20, 4) comment '持股市值变化-10日',
+    update_time    timestamp comment '更新时间'
+) comment '东方财富网-数据中心-沪深港通-沪深港通持股-每日个股统计'
+    partitioned by (td date comment '分区_交易日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
+-- 接口有问题
+drop table if exists ods_stock_fund_holder_di;
+create table if not exists ods_stock_fund_holder_di
+(
+    announcement_date      date comment '公告日期',
+    stock_code             string comment '股票代码',
+    stock_name             string comment '股票名称',
+    fund_code             string comment '基金代码',
+    fund_name             string comment '基金名称',
+    hold_stock_nums  decimal(20, 4) comment '持股数量',
+    hold_circulating_nums_rate decimal(20, 4) comment '持股占流通股比例(%)',
+    hold_market  decimal(20, 4) comment '持股市值',
+    update_time            timestamp comment '更新时间'
+) comment '新浪财经-股本股东-基金持股'
+    partitioned by (td date comment '分区_公告日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
+drop table if exists ods_stock_fund_hold_detail_di;
+create table if not exists ods_stock_fund_hold_detail_di
+(
+    announcement_date      date comment '公告日期',
+    stock_code             string comment '股票代码',
+    stock_name             string comment '股票名称',
+    fund_code             string comment '基金代码',
+    fund_name             string comment '基金名称',
+    hold_stock_nums  decimal(20, 4) comment '持股数量',
+    hold_market  decimal(20, 4) comment '持股市值',
+    hold_nums_rate decimal(20, 4) comment '持股占总股本比例(%)',
+    hold_nums_circulating_rate decimal(20, 4) comment '持股占流通股比例(%)',
+    update_time            timestamp comment '更新时间'
+) comment '东方财富网-数据中心-主力数据-基金持仓-基金持仓明细表'
+    partitioned by (td date comment '分区_公告日期')
+    row format delimited fields terminated by '\t'
+    stored as orc
+    tblproperties ('orc.compress' = 'snappy');
+
