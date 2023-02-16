@@ -48,7 +48,7 @@ class UiDataUtils:
                                round(high_price,2) as high_price,
                                round(low_price,2) as low_price,
                                round(change_percent,2) as change_percent,
-                               volume_ratio_1d
+                               volume_ratio_1d,
                                volume_ratio_5d,
                                turnover_rate,
                                industry_plate,
